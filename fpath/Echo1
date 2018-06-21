@@ -1,0 +1,7 @@
+#!/bin/zsh
+
+Echo1() {
+	if (( $VERBOSITY >= 1 )) {
+		echo -e $*;
+	}
+}

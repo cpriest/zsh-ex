@@ -1,0 +1,184 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+#
+#	TODO:
+#		Does above setopt LOCAL_OPTIONS work for a sourced file
+#
+
+() {
+	local PHP_INI="/etc/php.d/999.xdebug.ini";
+	local PHPZ_INI="/etc/php-zts.d/999.xdebug.ini";
+	local SD=`dirname $0`;
+	# source $SD/../inc/OutputControl.zsh;
+
+	#
+	#	xd command works with using a php debugger (xdebug by default)
+	#
+	local m=$'\033[m' c=$'\033[38;5;14m' r=$'\033[38;5;1m' g=$'\033[38;5;10m' u=$'\033[4m';
+
+	# Command Functions
+	cmd_help() {
+		cat <<EOF
+${r}xd${m} [ -v -h ] ${g}{command}${m} [ -- ] ${g}[args]${m}  - Provides various commands for working with php debuggers
+
+	Commands
+		${g}debug${m}
+		${g}run${m}
+		${g}on${m}		Enables debugging by setting appropriate environment variables
+
+		${g}profile${m}	Enables profiling by setting appropriate environment variables
+
+		${g}show${m}	Shows the active configuration
+
+		${g}off${m}		Clears any environment variables and uninstalls the xdebug.ini settings
+
+	When ${g}[args]${m} ${u}are specified${m}, the given ${g}[args]${m} will be executed with the appropriate environment
+		variables.  When ${u}are not specified${m}, xdebug.ini settings will be installed to /etc/php*.d for
+		use in web environments.
+EOF
+	}
+
+	error() {
+		FIRST=$1; shift;
+		echo "\e[31;1m$FIRST\e[m: $*\n";
+		cmd_help;
+	}
+
+	# Enables the configured xdebug.ini
+	enable_ini() {
+		[[ ! -e "$PHP_INI" ]] &&
+			ln -s ~/.config/zsh-ex/xdebug.ini $PHP_INI;
+
+		[[ ! -e "$PHPZ_INI" ]] &&
+			ln -s ~/.config/zsh-ex/xdebug.ini $PHPZ_INI;
+	}
+
+	# Disables the configured xdebug.ini
+	disable_ini() {
+		rm $PHP_INI;
+		rm $PHPZ_INI;
+	}
+
+	# Shows any active XDEBUG config in the environment variables
+	show_env() {
+		env | \grep '^XDEBUG';
+	}
+
+	# Command Defaults
+	VERBOSITY=()
+
+	# Parse Options
+	zparseopts -D -K v+=VERBOSITY h=HELP
+
+	# Manipulate Results
+	VERBOSITY=${#VERBOSITY}
+
+	[[ ${#HELP} > 0 || $# == 0 ]] &&
+		cmd_help && return $?;
+
+	# Turn on debugging or run [args] for one command
+	cmd_debug() {
+		local _XDEBUG_CONFIG="remote_enable=1 remote_autostart=On $_XDEBUG_CONFIG";
+		if [[ $# > 0 ]] {
+			Echo1 "${g}Enabling xdebug.ini for command:${m} " $@ "\n";
+			enable_ini;
+			XDEBUG_CONFIG="$_XDEBUG_CONFIG" $@;
+			disable_ini &> /dev/null;
+		} else {
+			echo "${g}Enabling xdebug.ini, ${m}${u}web server should be restarted if needed.${m}\n";
+			enable_ini;
+			export XDEBUG_CONFIG="$_XDEBUG_CONFIG";
+
+			show_env;
+
+			# pidof -x pydbgpproxy_watch.sh >&/dev/null || /opt/tools/contrib/pydbgpproxy_watch.sh;
+		}
+	}
+	cmd_run() { cmd_debug "$@"; return $?; }
+	cmd_on() { cmd_debug "$@"; return $?; }
+
+	# Turn on profiling or run [args] for one command
+	cmd_profile() {
+		local _XDEBUG_CONFIG="profiler_enable=1 $_XDEBUG_CONFIG";
+		if [[ $# > 0 ]] {
+			Echo1 "${g}Enabling xdebug.ini for command:${m} " $@ "\n";
+			enable_ini;
+			XDEBUG_CONFIG="$_XDEBUG_CONFIG" $@;
+			disable_ini &> /dev/null;
+		} else {
+			echo "${g}Enabling xdebug.ini, ${m}${u}web server should be restarted if needed.${m}\n";
+			enable_ini;
+			export XDEBUG_CONFIG="$_XDEBUG_CONFIG";
+
+			show_env;
+
+			# pidof -x pydbgpproxy_watch.sh >&/dev/null || /opt/tools/contrib/pydbgpproxy_watch.sh;
+		}
+	}
+
+
+	# Turn off php debugging/profiling
+	cmd_off() {
+		echo "${g}Disabling xdebug.ini, unsetting XDEBUG_CONFIG.${m}";
+		disable_ini &>/dev/null;
+		unset XDEBUG_CONFIG;
+	}
+
+
+	# Shows the current state if activated, or the XDEBUG_CONF that would be used if not activated
+	cmd_show() {
+		[[ "$XDEBUG_CONFIG" != "" || -e "$PHP_INI" || -e "$PHPZ_INI" ]] && {
+			echo "Using (${g}active${m}):";
+			{
+				show_env;
+				echo;
+				ls -alh --color $PHP_INI $PHPZ_INI;
+			} | perl -pi -e 's/^/\t/';
+			return;
+		}
+		echo "Would use (${r}not active${m}):";
+		echo "	\$XDEBUG_CONFIG=$_XDEBUG_CONFIG";
+		echo;
+		echo "	${c}${PHP_INI}${m} -> ~/.config/zsh-ex/xdebug.ini";
+		echo "	${c}${PHPZ_INI}${m} -> ~/.config/zsh-ex/xdebug.ini";
+	}
+
+
+	# Determine XDEBUG_CONFIG settings
+	source ~/.config/zsh-ex;
+
+	local REMOTE_HOST=${SSH_CLIENT%% *}
+
+	# If our remote host is in the list of USE_PROXY...
+	(( ${XD_USE_PROXY_FOR_REMOTE_IPS[(I)$REMOTE_HOST]} )) &&
+		REMOTE_HOST="127.0.0.1";
+
+	[[ -n $XD_FORCE_REMOTE_HOST ]] &&
+		REMOTE_HOST=$XD_FORCE_REMOTE_HOST;
+
+	local IDEKEY=${XD_FORCE_IDEKEY:=${SUDO_USER:=$USER}}
+
+	local _XDEBUG_CONFIG="remote_host=${REMOTE_HOST} idekey=${IDEKEY} $XD_CONFIG_OTHER";
+
+	[[ -n "$XD_REMOTE_PORT" ]] && { _XDEBUG_CONFIG+="remote_port=$XD_REMOTE_PORT"; }
+
+
+	# Process the command
+
+	CMD=$1; shift;
+	[[ "$1" == "--" ]] &&
+		shift;
+
+	declare -f "cmd_${CMD}" >& /dev/null || {
+		error "$CMD is not a valid command";
+		return 1;
+	};
+
+	cmd_${CMD} "$@";
+	return $?;
+
+	## Notes
+
+	# - de needs to export env variables to container for running
+} "$@";

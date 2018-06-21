@@ -1,0 +1,32 @@
+#!/usr/bin/zsh
+
+################################################################################
+#
+#	Default Configuration
+#
+#		** NOTE **
+#
+#	This file is copied to ~/.config/zsh-ex during initialization if not already
+#	present, you should modify that file to change your settings
+#
+################################################################################
+
+
+# If our REMOTE_HOST (as determined by $SSH_CLIENT) is present in this array
+# a local proxy will be launched and used
+XD_USE_PROXY_FOR_REMOTE_IPS=()
+XD_USE_PROXY_FOR_REMOTE_IPS+=172.126.78.161;	# Office IP - AT&T
+XD_USE_PROXY_FOR_REMOTE_IPS+=192.168.7.103;
+
+# Force the use of this IP address if set, regardless of above
+XD_FORCE_REMOTE_HOST="";		# e.g. 192.168.7.110
+
+# Override xdebug.remote_port to use this port
+XD_REMOTE_PORT=""
+
+# Force the use of this string as ideKey
+XD_FORCE_IDEKEY="";
+
+# Additional options to use with xdebug configuration
+XD_CONFIG_OTHER="";
+
