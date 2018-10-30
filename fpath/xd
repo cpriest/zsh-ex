@@ -62,7 +62,7 @@ EOF
 
 	# Shows any active XDEBUG config in the environment variables
 	show_env() {
-		env | \grep '^XDEBUG';
+		set | \grep '^XDEBUG';
 	}
 
 	# Command Defaults

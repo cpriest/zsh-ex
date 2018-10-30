@@ -1,0 +1,136 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+#
+#	TODO:
+#		Does above setopt LOCAL_OPTIONS work for a sourced file
+#
+local SF=${(%):-%x};
+local SD=`dirname $SF`;
+
+() {
+
+##																									\e[m
+##	de [options] [--] {cmd}
+##		Executes the given command in the container specified by environment variable
+## 		$DE_CONTAINER.  {cmd} will be made absolute if necessary, assumes PWD matches
+##		the container.
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			Any of the options available to docker exec, -t -i assumed
+##																									\e[m
+##			-h	Shows this help information
+##			-v	Increases verbosity, may be repeated multiple times
+##																									\e[m
+##			-H	Shows help information for \e[37;1mdocker help exec\e[m
+##			-c	Use \e[32;1mname\e[m as the container instead of \e[37;1m$DE_CONTAINER\e[m
+##			-C  \e[32;1mname\e[m Set the \e[37;1m$DE_CONTAINER\e[m to \e[32;1mname\e[m
+##				  Example: de -C blah sets the DE_CONTAINER environment variable to blah
+##
+
+	TRAPABRT() { return $(( 128 + $1 )); }
+
+	help() {
+		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
+		kill -ABRT $$;
+	}
+
+	error() {
+		echo "\e[31;1m$@\e[m";
+		help;
+	}
+
+	vmsg() {
+		[[ $1 > $VERBOSITY ]] &&
+			return;
+		shift;	# Drop $1
+		echo $*;
+	}
+
+	zparseopts -D -E v+=VERBOSITY h=HELP H=_DE_HELP c:=_CONTAINER C:=_CONTAINER_EXPORT d=_DE_OPTS i=_DE_OPTS -privileged=_DE_OPTS t=_DE_OPTS u:=_DE_OPTS ||
+		help;
+
+	VERBOSITY=${#VERBOSITY}
+
+	[[ "$_DE_HELP" ]] && {
+		docker help exec;
+		kill -ABRT $$;
+	}
+
+	[[ "$HELP" ]] &&
+		help;
+
+	# Prefer -C > -c > $DE_CONTAINER
+	CONTAINER=${_CONTAINER_EXPORT[2]-${_CONTAINER[2]-$DE_CONTAINER}}
+
+	if [[ $_CONTAINER_EXPORT ]] {
+		# Can't export to calling shell like this, look into it later @bugfix
+		export DE_CONTAINER=${_CONTAINER_EXPORT[2]};
+		echo "\`export DE_CONTAINER=${_CONTAINER_EXPORT[2]}\`";
+		[[ ${#*} = 0 ]] && kill -ABRT $$;
+	}
+
+	DE_OPTS=($_DE_OPTS -ti)
+
+	[[ ${#*} = 0 ]]       && error "No {cmd} specified for execution";
+	[[ -z "$CONTAINER" ]] && error "No container specified via -c or \$DE_CONTAINER environment variable";
+
+	# Drop -- if it's the first parameter
+	[[ $1 == "--" ]] && shift;
+
+	EXEC_CMD="${1:c}";
+
+	# If expanding $1 as a command (:c) is the same as $1
+	if [[ "${1:c}" == "$1" ]] {
+		# And $1 does not exist as a file
+		if [[ ! -e "$1" ]] {
+			# Try and find the command that would be run
+			EXEC_CMD=`whence -v $1 | perl -pe 's/^.+ is an alias for //'`;
+			[[ -z "$EXEC_CMD" ]] &&
+				error "Could not resolve $1 to a valid command using \`whence -v $1\`.";
+		}
+	}
+
+	# Remove the first argument, its now resolved to $EXEC_CMD
+	shift;
+
+	# If we're just running bash, clear out the exec command
+	[[ "$EXEC_CMD" == "/bin/bash" ]] &&
+		EXEC_CMD="";
+
+	TMP=`mktemp`;
+	{
+		# `alias -rL | grep "'"`;
+		cat <<-EOF
+			`emulate bash -c 'export -p' | \pcregrep -v '^export (-|(SHELL|SHLVL|SUDO_|PWD|OLDPWDSUDO_|SSH_AUTH|SSH_TTY|LESSOPEN|LOGNAME|USER|USERNAME|PATH|HOME)[^=]*=)'`;
+
+			[[ -e ~/.bashrc ]] && source ~/.bashrc;
+
+			cd ~;	# Fallback to home directory in case final cd doesn't work
+			cd $PWD;
+		EOF
+
+		[[ -n "$EXEC_CMD" ]] &&
+			echo "$EXEC_CMD ${(@q)*}; exit \$?;";
+	} >> $TMP;
+
+	trap on_exit EXIT;
+
+	docker cp $TMP $CONTAINER:/root/.bash_profile;
+
+	CMD="docker exec ${DE_OPTS} ${CONTAINER} bash -li";
+
+	if [[ $VERBOSITY > 1 ]] {
+		vmsg 1 $CMD;
+		vmsg 1 "";
+		echo "\e[37;1mScript to be executed in container:\e[m";
+		cat $TMP | nl;
+		echo "-----------------------------------------------------------------------------";
+	}
+
+	eval $CMD;
+
+	on_exit() {
+		rm $TMP;
+	}
+} "$@";
