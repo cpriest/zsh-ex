@@ -13,3 +13,5 @@ init_config() {
 init_config;
 
 PATH="$SD/bin:$PATH";
+
+source $SD/inc/*.zsh;
