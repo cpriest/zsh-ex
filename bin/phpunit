@@ -1,0 +1,41 @@
+#!/bin/zsh
+#
+#	Process functions - Utilities for working with processes
+#		Copyright (c) 2015 Clint Priest - MIT License - http://opensource.org/licenses/MIT
+#
+
+#	phpunit [params]
+#		Attempts to locate phpunit by looking for secure/vendor/bin/phpunit for the current directory project
+FUNCHELP="phpunit([...]) = 'Tries to execute phpunit from secure/vendor/bin of current project directory'";
+
+# The directory of this script
+SDIR=`dirname $0`;
+
+# Remove our own directory from the path
+PATH=${PATH/$SDIR}
+
+PATHBIN="`whence phpunit`";
+
+CWD="$PWD";
+while [ true ]; do
+	if [[ -f "$CWD/phpunit.xml" ]] {
+		if [[ -x "$CWD/vendor/bin/phpunit" ]] {
+			PATHBIN="$CWD/vendor/bin/phpunit";
+		} elif [[ -x "$CWD/secure/vendor/bin/phpunit" ]] {
+			PATHBIN="$CWD/secure/vendor/bin/phpunit";
+		}
+		if [[ -x "$PATHBIN" ]] {
+			"$PATHBIN" -d display_startup_errors=1 -d display_errors=1 -c "$CWD/phpunit.xml" "$*";
+			exit $?;
+		}
+	}
+
+	[[ "$CWD" = "/" ]] &&
+		break;
+	CWD="`dirname $CWD`";
+done;
+
+[[ -x "$PATHBIN" ]] &&
+	{ "$PATHBIN" "$*"; exit $?; }
+
+echo "Could not find phpunit in your \$PATH or current directory/parents.";
