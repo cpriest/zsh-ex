@@ -1,0 +1,51 @@
+#!/bin/zsh
+
+HOST=`hostname -s`;
+TMPDIR=`mktemp -d`;
+
+cd $TMPDIR;
+
+# Linux Info / Config
+
+	mount > $HOST-mount.log;
+	cp /etc/fstab $HOST-fstab;
+
+	sysctl -a 2>/dev/null > $HOST-sysctl-live.conf;
+	cp /etc/sysctl.conf $HOST-sysctl.conf;
+
+# Mysql Info / Config
+	mysql -Be "SELECT * FROM information_schema.GLOBAL_VARIABLES ORDER BY VARIABLE_NAME" 2>/dev/null > $HOST-mysql-global-vars.tsv;
+	mysql -Be "SELECT * FROM information_schema.GLOBAL_STATUS ORDER BY VARIABLE_NAME" 2>/dev/null > $HOST-mysql-global-status.tsv;
+
+	cp /etc/my.cnf $HOST-mysql.cnf;
+
+	find -L /mysql /mnt -type d -name shared -prune -o -type d -exec ls -a1ld --color {} \+ 2>/dev/null > $HOST-dirs.log;
+
+	# All small /mysql files < 1M
+	tar -czf $HOST-files.tgz `find -L /mysql -type f ! \( -iname \*.ibd -o -iname \*.MYD -o -iname \*.MYI -o -iname ib_log\* -o -iname ibdata\* -o -iname \*relay-log\* -o -iname \*bin-log\* -o -iname xtrabackup_logfile -o -iname ib_buffer_pool -o -size +1M \) -exec ls -a1 {} \+` 2>/dev/null
+
+# Disk Info
+
+	# /sys/block Info
+	(	cd /sys/block; 	grep '' `print -l */* */queue/* */device/* | sort -h` 2>/dev/null	) > $HOST-sys-block.log;
+
+	fdisk -l 2>/dev/null > $HOST-fdisk.log;
+
+	blkid 2>/dev/null > $HOST-blkid.log;
+
+	pvs -v 2>/dev/null > $HOST-pvs.log;
+	lvs -v 2>/dev/null > $HOST-lvs.log;
+	vgs -v 2>/dev/null > $HOST-vgs.log;
+
+# Package it up
+	tar -czf $HOST.tgz *;
+
+	mv $HOST.tgz /tmp;
+
+	rm -rf $TMPDIR;
+	echo;
+	echo "\e[32mDump of Archive: \e[m";
+	tar -vhtzf /tmp/$HOST.tgz | perl -pe 's#^#\t#g';
+	echo;
+	echo "\e[32mDumpfile collected:\e[m"
+	ls -alh --color /tmp/$HOST.tgz | perl -pe 's#^#\t#g';
