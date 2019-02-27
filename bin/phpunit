@@ -25,8 +25,7 @@ while [ true ]; do
 			PATHBIN="$CWD/secure/vendor/bin/phpunit";
 		}
 		if [[ -x "$PATHBIN" ]] {
-			"$PATHBIN" -d display_startup_errors=1 -d display_errors=1 -c "$CWD/phpunit.xml" "$*";
-			exit $?;
+			exec $PATHBIN -d display_startup_errors=1 -d display_errors=1 -c $CWD/phpunit.xml $*;
 		}
 	}
 
@@ -36,6 +35,6 @@ while [ true ]; do
 done;
 
 [[ -x "$PATHBIN" ]] &&
-	{ "$PATHBIN" "$*"; exit $?; }
+	{ exec "$PATHBIN" "$*"; }
 
 echo "Could not find phpunit in your \$PATH or current directory/parents.";

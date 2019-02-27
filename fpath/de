@@ -30,6 +30,10 @@ local SD=`dirname $SF`;
 
 	TRAPABRT() { return $(( 128 + $1 )); }
 
+	local DOCKER='docker';
+	[[ "$SUDO_USER" = "" ]] &&
+		DOCKER="sudo -E $DOCKER";
+
 	help() {
 		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
 		kill -ABRT $$;
@@ -116,9 +120,9 @@ local SD=`dirname $SF`;
 
 	trap on_exit EXIT;
 
-	docker cp $TMP $CONTAINER:/root/.bash_profile;
+	eval "$DOCKER cp $TMP $CONTAINER:/root/.bash_profile";
 
-	CMD="docker exec ${DE_OPTS} ${CONTAINER} bash -li";
+	CMD="$DOCKER exec ${DE_OPTS} ${CONTAINER} bash -li";
 
 	if [[ $VERBOSITY > 1 ]] {
 		vmsg 1 $CMD;
@@ -127,7 +131,6 @@ local SD=`dirname $SF`;
 		cat $TMP | nl;
 		echo "-----------------------------------------------------------------------------";
 	}
-
 	eval $CMD;
 
 	on_exit() {
