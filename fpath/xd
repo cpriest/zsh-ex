@@ -79,7 +79,7 @@ EOF
 
 	# Turn on debugging or run [args] for one command
 	cmd_debug() {
-		local _XDEBUG_CONFIG="remote_enable=1 remote_autostart=On $_XDEBUG_CONFIG";
+		local _XDEBUG_CONFIG="remote_enable=1 $_XDEBUG_CONFIG";
 		if [[ $# > 0 ]] {
 			Echo1 "${g}Enabling xdebug.ini for command:${m} " $@ "\n";
 			enable_ini;
