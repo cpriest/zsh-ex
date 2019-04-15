@@ -13,19 +13,22 @@ local SD=`dirname $SF`;
 ##																									\e[m
 ##	de [options] [--] {cmd}
 ##		Executes the given command in the container specified by environment variable
-## 		$DE_CONTAINER.  {cmd} will be made absolute if necessary, assumes PWD matches
+## 		$DE_CONTAINER.  {cmd} will be expanded if necessary, assumes PWD matches
 ##		the container.
 ##																									\e[m
 ##		\e[31;1moptions\e[m
 ##			Any of the options available to docker exec, -t -i assumed
 ##																									\e[m
-##			-h	Shows this help information
-##			-v	Increases verbosity, may be repeated multiple times
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
 ##																									\e[m
-##			-H	Shows help information for \e[37;1mdocker help exec\e[m
-##			-c	Use \e[32;1mname\e[m as the container instead of \e[37;1m$DE_CONTAINER\e[m
-##			-C  \e[32;1mname\e[m Set the \e[37;1m$DE_CONTAINER\e[m to \e[32;1mname\e[m
-##				  Example: de -C blah sets the DE_CONTAINER environment variable to blah
+##			-H		  Shows help information for \e[37;1mdocker help exec\e[m
+##																									\e[m
+##			-c \e[32;1mname\e[m   Use \e[32;1mname\e[m as the container instead of \e[37;1m$DE_CONTAINER\e[m
+##			-C \e[32;1mname\e[m   Set the \e[37;1m$DE_CONTAINER\e[m to \e[32;1mname\e[m
+##				  		  Example: de -C blah sets the DE_CONTAINER environment variable to blah
+##																									\e[m
+##			-n		  Do not perform expansion on \e[32;m{cmd}\e[m
 ##
 
 	TRAPABRT() { return $(( 128 + $1 )); }
@@ -51,7 +54,7 @@ local SD=`dirname $SF`;
 		echo $*;
 	}
 
-	zparseopts -D -E v+=VERBOSITY h=HELP H=_DE_HELP c:=_CONTAINER C:=_CONTAINER_EXPORT d=_DE_OPTS i=_DE_OPTS -privileged=_DE_OPTS t=_DE_OPTS u:=_DE_OPTS ||
+	zparseopts -D -E v+=VERBOSITY h=HELP H=_DE_HELP n=NO_EXPANSION c:=_CONTAINER C:=_CONTAINER_EXPORT d=_DE_OPTS i=_DE_OPTS -privileged=_DE_OPTS t=_DE_OPTS u:=_DE_OPTS ||
 		help;
 
 	VERBOSITY=${#VERBOSITY}
@@ -82,17 +85,21 @@ local SD=`dirname $SF`;
 	# Drop -- if it's the first parameter
 	[[ $1 == "--" ]] && shift;
 
-	EXEC_CMD="${1:c}";
+	if [[ -n $NO_EXPANSION ]] {
+		EXEC_CMD="$1";
+	} else {
+		EXEC_CMD="${1:c}";
 
-	# If expanding $1 as a command (:c) is the same as $1
-	if [[ "${1:c}" == "$1" ]] {
-		# And $1 does not exist as a file
-		if [[ ! -e "$1" ]] {
-			# Stuff the command in a function, which will expand it as per normal, then read it back out
-			functions[__de_exec_expand]=$EXEC_CMD;
-			EXEC_CMD="${functions[__de_exec_expand]//$'\t'/}";
-			[[ -z "$EXEC_CMD" ]] &&
-				error "Could not resolve $1 to a valid command using regular expansion.";
+		# If expanding $1 as a command (:c) is the same as $1
+		if [[ "${1:c}" == "$1" ]] {
+			# And $1 does not exist as a file
+			if [[ ! -e "$1" ]] {
+				# Stuff the command in a function, which will expand it as per normal, then read it back out
+				functions[__de_exec_expand]=$EXEC_CMD;
+				EXEC_CMD="${functions[__de_exec_expand]//$'\t'/}";
+				[[ -z "$EXEC_CMD" ]] &&
+					error "Could not resolve $1 to a valid command using regular expansion.";
+			}
 		}
 	}
 
