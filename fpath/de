@@ -88,10 +88,11 @@ local SD=`dirname $SF`;
 	if [[ "${1:c}" == "$1" ]] {
 		# And $1 does not exist as a file
 		if [[ ! -e "$1" ]] {
-			# Try and find the command that would be run
-			EXEC_CMD=`whence -v $1 | perl -pe 's/^.+ is an alias for //'`;
+			# Stuff the command in a function, which will expand it as per normal, then read it back out
+			functions[__de_exec_expand]=$EXEC_CMD;
+			EXEC_CMD="${functions[__de_exec_expand]//$'\t'/}";
 			[[ -z "$EXEC_CMD" ]] &&
-				error "Could not resolve $1 to a valid command using \`whence -v $1\`.";
+				error "Could not resolve $1 to a valid command using regular expansion.";
 		}
 	}
 
@@ -115,7 +116,7 @@ local SD=`dirname $SF`;
 		EOF
 
 		[[ -n "$EXEC_CMD" ]] &&
-			echo "$EXEC_CMD ${(@q)*}; exit \$?;";
+			echo "$EXEC_CMD ${(@q)*}; \nexit \$?;";
 	} >> $TMP;
 
 	trap on_exit EXIT;
