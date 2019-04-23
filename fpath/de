@@ -9,6 +9,7 @@ local SF=${(%):-%x};
 local SD=`dirname $SF`;
 
 () {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS;
 
 ##																									\e[m
 ##	de [options] [--] {cmd}
