@@ -1,0 +1,16 @@
+#!/bin/zsh
+
+## This command resets the zcompdump / antigen setup which fixes some cases where
+##  Completions/commands aren't working as expected
+
+set | grep zcomp | sort
+
+[[ -n "$_comp_dumpfile" ]] && {
+	echo "Removing $_comp_dumpfile...";
+	rm -f $_comp_dumpfile $_comp_dumpfile.zwc;
+	compinit -C
+	whence antigen >&/dev/null && {
+		echo "antigen cache-gen...";
+		antigen cache-gen;
+	}
+}
