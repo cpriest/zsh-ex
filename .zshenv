@@ -11,8 +11,10 @@ SD="`dirname $0`";
 alias compinit='my_compinit';
 
 my_compinit() {
-	autoload -Uz compinit;
-	\compinit -C "$*";
+	# Over-ridden to add -u to the compinit call (to ignore security issues)
+	# Note: calling compinit ourselves too early causes problems, just letting
+	# antigen setup call compinit now.
+	\compinit -u "$*";
 }
 
 () {	# init-fpath
@@ -20,5 +22,5 @@ my_compinit() {
 	fpath=($SD/fpath $fpath);
 	autoload $SD/fpath/*(:t);
 
-	compinit -u &!; # Initialize the completion system
+	autoload -Uz compinit;
 }
