@@ -15,4 +15,4 @@ alias zphpv='zts-php -v';
 alias  phpx='php -dzend_extension=xdebug.so';
 alias zphpx='zts-php -dzend_extension=xdebug.so';
 
-alias phplint='find . -name "*.php" -print0 | xargs -0 -n1 -P8 php -l';
+alias phplint='find . -type d -name vendor -prune -or -name "*.php" -print0 | xargs -0 -n1 -P32 -I{} sh -c "php -derror_log= -ddisplay_startup_errors=1 -ddisplay_errors=1 -l {} || true"';
