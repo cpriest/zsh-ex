@@ -30,3 +30,8 @@ XD_FORCE_IDEKEY="";
 # Additional options to use with xdebug configuration
 XD_CONFIG_OTHER="";
 
+# Pattern to use with `psp`, could be configured
+case `hostname -s` in
+	*) PSP_PCRE="bin/php";
+esac;
+

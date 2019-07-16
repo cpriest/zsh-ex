@@ -146,7 +146,7 @@ EOF
 
 
 	# Determine XDEBUG_CONFIG settings
-	source ~/.config/zsh-ex;
+	source ~/.config/zsh-ex/config;
 
 	local REMOTE_HOST=${SSH_CLIENT%% *}
 

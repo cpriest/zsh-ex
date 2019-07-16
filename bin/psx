@@ -1,0 +1,48 @@
+#!/bin/zsh
+#	psx pcre[...]
+#		Lists processes from all process trees which match all {pcre} patterns
+
+PS_CMD='\ps afx -o pgid,pid,user,stat,%cpu,%mem,rss,args';
+PCRE='\pcregrep';
+
+PCRE_OPTS=${CPE_ATP_OPTS-"-i --color=always"};
+PCRE_MATCH="$PCRE $PCRE_OPTS ";
+
+# Surround each $argv with quotes (qq) and prefix each with $PCRE_MATCH resulting in an array (local -a)
+PARAMS=( ${${(qq)@}/#/$PCRE_MATCH} );
+
+# Join the array elements with ' | ' sans the quotes
+MATCHPIPE="${(j. | .)PARAMS}";
+
+EXCLUDE_PIDS=( 0 1 $$ );
+
+if [[ -n "$MATCHPIPE" ]] {
+	PS_OUT=`\ps afx -o ppid,pid,user,stat,args | tail -n +2 | \pcregrep -v "\b$$\b"`;
+
+	# Get the PID of all matches against $MATCHPIPE, omitting our command PID
+	PIDS=( `eval "${MATCHPIPE}" <<<$PS_OUT | \perl -pe 's/^\s*\d+\s+(\d+).*$/$1/'`);
+
+	# Expand PIDS by finding all parents/children if existing list of PIDS
+	EXP_PIDS=();
+
+	# Trim PS_OUT to just ppid,pid
+	PS_PIDS="`\pcregrep -o '^\s*\d+\s+\d+' <<<$PS_OUT `";
+
+	# Recursively find child/parents of any existing pids
+	while [[ true ]] {
+		PIDS_CNT=${#PIDS};
+
+		local EXP_PIDS=(`\pcregrep "\\b(${(j.|.)PIDS})\\b" <<<$PS_PIDS | \pcregrep -v "\\b(${(j.|.)EXCLUDE_PIDS})\\b" | \perl -pe 's/^\s*(\d+)\s+(\d+).*$/$1\n$2/'`);
+
+		if [[ ${#EXP_PIDS} == $PIDS_CNT || ${#EXP_PIDS} == 0 ]] {
+			break;
+		}
+		PIDS=($EXP_PIDS);
+	}
+
+	# Finally show the ps command output again, specifying the PIDS to show and passing
+	# them through the matchpipe again for highlighting
+	eval "${PS_CMD/afx/f} -p '${(j.,.)PIDS}' | ${MATCHPIPE//pcregrep /pcregrep -C 20 } ";
+} else {
+	eval "$PS_CMD";
+}

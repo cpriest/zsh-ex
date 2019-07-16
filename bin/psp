@@ -1,0 +1,8 @@
+#!/bin/zsh
+#	psp
+#		Calls psx with parameters configurable in your zfk-ex/config file
+
+# Load settings
+source ~/.config/zsh-ex/config;
+
+psx "$PSP_PCRE";
