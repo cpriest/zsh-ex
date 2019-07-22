@@ -1,0 +1,65 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+#
+#	TODO:
+#		Does above setopt LOCAL_OPTIONS work for a sourced file
+#
+local SF=${(%):-%x};
+local SD=`dirname $SF`;
+
+() {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+##																									\e[m
+##	aliases [options] [pattern]
+##		Displays normal aliases, filtered by \e[32m{pattern}\e[m, if present.
+##																									\e[m
+##		\e[31;1moptions\e[m
+##																									\e[m
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
+##																									\e[m
+##			-g		  Shows only global aliases
+##																									\e[m
+##
+
+	TRAPABRT() { return $(( 128 + $1 )); }
+
+	help() {
+		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
+		kill -ABRT $$;
+	}
+
+	error() {
+		echo "\e[31;1m$@\e[m";
+		help;
+	}
+
+	vmsg() {
+		[[ $1 > $VERBOSITY ]] &&
+			return;
+		shift;	# Drop $1
+		echo $*;
+	}
+
+	zparseopts -D -E v+=VERBOSITY h=HELP g=GLOBAL ||
+		help;
+
+	VERBOSITY=${#VERBOSITY}
+
+	[[ "$HELP" ]] &&
+		help;
+
+	# Drop -- if it's the first parameter
+	[[ $1 == "--" ]] && shift;
+
+	ALIAS_OPTS="${GLOBAL:+-g}";
+
+	if [[ $# -gt 0 ]] {
+		builtin alias $ALIAS_OPTS | pcregrep $*;
+	} else {
+		builtin alias $ALIAS_OPTS;
+	}
+
+} "$@";
