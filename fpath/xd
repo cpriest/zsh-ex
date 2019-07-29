@@ -9,7 +9,9 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 () {
 	local PHP_INI="/etc/php.d/999.xdebug.ini";
 	local PHPZ_INI="/etc/php-zts.d/999.xdebug.ini";
-	local SD=`dirname $0`;
+	# Source directory of current script
+	local SD=${${(%):-%x}:h};
+
 	# source $SD/../inc/OutputControl.zsh;
 
 	#

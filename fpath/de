@@ -1,15 +1,17 @@
 #!/bin/zsh
-setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+#setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 #
 #	TODO:
 #		Does above setopt LOCAL_OPTIONS work for a sourced file
+#		  --> No, it doesn't, but it does at the function level
 #
-local SF=${(%):-%x};
-local SD=`dirname $SF`;
 
 () {
 	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
 
 ##																									\e[m
 ##	de [options] [--] {cmd}

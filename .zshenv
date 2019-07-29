@@ -4,22 +4,28 @@
 #	any script is executed Starts with ~/.zshenv
 ##################################################
 
-SD="`dirname $0`";
+() {
+	# Source directory of current script
+	local SD=${${(%):-%x}:h};
 
-# Over-ride compinit with my own function to pass along -C because
-# plugin authors use it without -C (skip security check)
-alias compinit='my_compinit';
+	ZEX_DIR=$SD;
 
-my_compinit() {
-	# Over-ridden to add -u to the compinit call (to ignore security issues)
-	# Note: calling compinit ourselves too early causes problems, just letting
-	# antigen setup call compinit now.
-	\compinit -u "$*";
-}
+	# Over-ride compinit with my own function to pass along -C because
+	# plugin authors use it without -C (skip security check)
+	alias compinit='my_compinit';
 
-() {	# init-fpath
+	my_compinit() {
+
+		# Over-ridden to add -u to the compinit call (to ignore security issues)
+		# Note: calling compinit ourselves too early causes problems, just letting
+		# antigen setup call compinit now.
+		\compinit -u "$*";
+	}
+
+	# init-fpath
 	setopt LOCAL_OPTIONS NULL_GLOB;
 	fpath=($SD/fpath $fpath);
+
 	autoload $SD/fpath/*(:t);
 
 	autoload -Uz compinit;

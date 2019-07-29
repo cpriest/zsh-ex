@@ -1,11 +1,12 @@
 #!/bin/zsh
 setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
-local SF=${(%):-%x};
-local SD=`dirname $SF`;
 
 () {
 	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
 
 ##																									\e[m
 ##	cdt [options]
