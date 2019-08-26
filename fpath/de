@@ -117,7 +117,7 @@
 	{
 		# `alias -rL | grep "'"`;
 		cat <<-EOF
-			`emulate bash -c 'export -p' | \pcregrep -v '^export (-|(SHELL|SHLVL|SUDO_|PWD|OLDPWDSUDO_|SSH_AUTH|SSH_TTY|LESSOPEN|LOGNAME|USER|USERNAME|PATH|HOME)[^=]*=)'`;
+			`emulate bash -c 'export -p' | \pcregrep -v '^export (-|(SHELL|SHLVL|SUDO_|PWD|OLDPWDSUDO_|SSH_TTY|LESSOPEN|LOGNAME|USER|USERNAME|PATH|HOME)[^=]*=)'`;
 
 			[[ -e ~/.bashrc ]] && source ~/.bashrc;
 

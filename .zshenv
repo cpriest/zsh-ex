@@ -15,6 +15,7 @@
 	alias compinit='my_compinit';
 
 	my_compinit() {
+		# echo "\e[31;1mcalled my_compinit $*\e[m";
 
 		# Over-ridden to add -u to the compinit call (to ignore security issues)
 		# Note: calling compinit ourselves too early causes problems, just letting

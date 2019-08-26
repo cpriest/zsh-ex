@@ -52,6 +52,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 	[[ "$HELP" ]] &&
 		help;
 
+	mkdir -p ~/tmp;
 
 	# Called on exit from this point forward
 	on_exit() {
@@ -60,7 +61,8 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 	trap on_exit EXIT;
 
 	# Command code starts here
-	DIR=`mktemp -d`;
+	DIR=$(mktemp -p ~/tmp/ -d `date +%Y%m%d-%H%M`-XXXXXX);
+
 	cd "$DIR";
 
 } "$@";
