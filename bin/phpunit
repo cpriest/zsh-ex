@@ -14,7 +14,7 @@ SDIR=`dirname $0`;
 # Remove our own directory from the path
 PATH=${PATH/$SDIR}
 
-PATHBIN="`whence phpunit`";
+PATHBIN="`\whence phpunit`";
 
 CWD="$PWD";
 while [ true ]; do

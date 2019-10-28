@@ -8,7 +8,7 @@
 [[ -n "$_comp_dumpfile" ]] && {
 	echo "Removing $_comp_dumpfile...";
 	rm -f $_comp_dumpfile $_comp_dumpfile.zwc;
-	whence antigen >&/dev/null && {
+	\whence antigen >&/dev/null && {
 		echo "antigen reset...";
 		antigen reset
 	}
