@@ -1,6 +1,8 @@
 #!/usr/bin/zsh
 
 # PHP Related Aliases
+alias pa='php ./artisan';
+
 alias  php='php -ddisplay_startup_errors=1 -ddisplay_errors=1';
 alias zphp='zts-php -ddisplay_startup_errors=1 -ddisplay_errors=1';
 
