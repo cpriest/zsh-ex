@@ -1,0 +1,64 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+() {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
+
+##																									\e[m
+##	format-table [options]
+##		Splits input lines by two or more spaces/tabs and reformats into appropriately sized columns
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
+##
+
+	# Ends the function call with an exit status of 128 + $1
+	TRAPABRT() { return $(( 128 + $1 )); }
+
+	# Prints out the help for this command, as formatted above with lines that start out with ##<tab>
+	help() {
+		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
+		kill -ABRT $$;
+	}
+
+	# Prints out a red error line of all arguments passed in, followed by the help contents
+	error() {
+		echo "\e[31;1m$@\e[m";
+		help;
+	}
+
+	# Prints out args $2..$N if verbosity is at least the value of $1
+	vmsg() {
+		[[ $1 > $VERBOSITY ]] &&
+			return;
+		shift;	# Drop $1
+		echo $*;
+	}
+
+	# Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
+	zparseopts -D -E v+=VERBOSITY h=HELP ||
+		help;
+
+	# Capture the verbosity number (number of -vvv's)
+	VERBOSITY=${#VERBOSITY}
+
+	# Display help if requested
+	[[ "$HELP" ]] &&
+		help;
+
+	mkdir -p ~/tmp;
+
+	# Called on exit from this point forward
+	on_exit() {
+
+	}
+	trap on_exit EXIT;
+
+	# Command code starts here
+	\perl -pe 's!\s{2,}!\036!g' | \column -t --separator $'\036'
+
+} "$@";
