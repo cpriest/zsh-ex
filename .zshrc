@@ -4,7 +4,7 @@
 	# Source directory of current script
 	local SD=${${(%):-%x}:h};
 
-	ZEX_DIR=$SD;
+	export ZEX_DIR=$SD;
 
 	init_config() {
 		[[ ! -d ~/.config || ! -d ~/.config/zsh-ex ]] && {

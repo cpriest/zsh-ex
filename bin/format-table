@@ -1,11 +1,9 @@
 #!/bin/zsh
-setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
 
 () {
-	setopt LOCAL_OPTIONS LOCAL_TRAPS;
-
-	local SF=${(%):-%x};
-	local SD=${SF:h};
+	source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
+		{ echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
 
 ##																									\e[m
 ##	format-table [options]
@@ -15,29 +13,6 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 ##			-h		  Shows this help information
 ##			-v		  Increases verbosity, may be repeated multiple times
 ##
-
-	# Ends the function call with an exit status of 128 + $1
-	TRAPABRT() { return $(( 128 + $1 )); }
-
-	# Prints out the help for this command, as formatted above with lines that start out with ##<tab>
-	help() {
-		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
-		kill -ABRT $$;
-	}
-
-	# Prints out a red error line of all arguments passed in, followed by the help contents
-	error() {
-		echo "\e[31;1m$@\e[m";
-		help;
-	}
-
-	# Prints out args $2..$N if verbosity is at least the value of $1
-	vmsg() {
-		[[ $1 > $VERBOSITY ]] &&
-			return;
-		shift;	# Drop $1
-		echo $*;
-	}
 
 	# Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
 	zparseopts -D -E v+=VERBOSITY h=HELP ||
