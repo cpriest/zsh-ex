@@ -1,0 +1,75 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+() {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
+
+	source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
+		{ echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
+
+##																									\e[m
+##	cdp [-hvt] [name]
+##		Changes directory to logical project or parent project, taking into account projects, root
+## 		branches, etc.
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			-h	Shows this help information
+##			-v	Increases verbosity, may be repeated multiple times
+##			-t	Test run, show the directory that would be changed into
+##
+
+	# Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
+	zparseopts -D -E v+=VERBOSITY h=HELP t=TEST ||
+		help;
+
+	# Capture the verbosity number (number of -vvv's)
+	VERBOSITY=${#VERBOSITY}
+
+	# Display help if requested
+	[[ "$HELP" ]] &&
+		help;
+
+
+	# Called on exit from this point forward
+	on_exit() {
+
+	}
+	trap on_exit EXIT;
+
+	ORIG_PWD="$PWD";
+
+	if [[ $# -gt 0 ]] {
+		TEST_DIRS=( ./code/lib ./common/lib ./secure/vendor ./vendor . /opt);
+		SEARCH_DIRS=();
+
+		for x in $TEST_DIRS; {
+			[[ -d "$x" ]] &&
+				SEARCH_DIRS+="$x";
+		}
+
+		DIR=`\fd -t d -i "$1" $SEARCH_DIRS | head -n 1`;
+		[[ -z "$DIR" ]] &&
+			warn "Could not find a suitable directory based on $1" && return;
+
+		cd "$DIR";
+	} else {
+		# Command code starts here
+		while [[ true ]] {
+			cd ..;
+			[[ -d "./.git" ]] &&
+				break;
+
+			[[ "${PWD:h}" == "/" ]] &&
+				break;
+		}
+	}
+
+	[[ "$TEST" ]] && {
+		echo "cdp would change to $PWD";
+		cd $ORIG_PWD;
+	}
+
+} "$@";
