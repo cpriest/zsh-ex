@@ -25,8 +25,8 @@
 
 	# init-fpath
 	setopt LOCAL_OPTIONS NULL_GLOB;
-	fpath=($SD/fpath $fpath);
 
+	fpath=($SD/fpath $fpath);
 	autoload $SD/fpath/*(:t);
 
 	autoload -Uz compinit;
