@@ -51,10 +51,14 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 	}
 
 	function agent_running() {
-		for ((cnt=0; cnt < 2; cnt++)) {
+		# Introduce some randomness in cases of race condition
+		for ((cnt=0; cnt < 4; cnt++)) {
 			agent_is_running &&
 				break;
-			sleep .25;		# If it's not running, give it 250ms
+			[[ $(( $RANDOM % 10 )) -lt 3 ]] &&
+				break;
+
+			sleep $(( ($RANDOM % 10 / 30.0) + .15 ));	# If it's not running, give it 150-480ms
 			load_ssh_env;	# Try and re-load the environment
 		}
 	}
