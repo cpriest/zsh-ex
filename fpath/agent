@@ -43,28 +43,46 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 		echo "\e[38;5;51mStarted new SSH agent.\e[m";
 		/usr/bin/ssh-agent | perl -pe 's/^echo.+$//' > "${SSH_ENV}";
 		chmod 600 "${SSH_ENV}";
-		. "${SSH_ENV}" > /dev/null;
+		source "${SSH_ENV}" > /dev/null;
+	}
+
+	function load_ssh_env() {
+		source "${SSH_ENV}" >& /dev/null
+	}
+
+	function agent_running() {
+		for ((cnt=0; cnt < 2; cnt++)) {
+			agent_is_running &&
+				break;
+			sleep .25;		# If it's not running, give it 250ms
+			load_ssh_env;	# Try and re-load the environment
+		}
+	}
+
+	function agent_is_running() {
+		#ps ${SSH_AGENT_PID} doesn't work under cywgin
+
+		[[ -n "${SSH_AGENT_PID}" ]] &&
+			ps -ef | \grep ${SSH_AGENT_PID} | \grep ssh-agent$ >& /dev/null
 	}
 
 	# Source SSH settings, if applicable
 
 	if [ -f "${SSH_ENV}" ]; then
-		. "${SSH_ENV}" > /dev/null
-		#ps ${SSH_AGENT_PID} doesn't work under cywgin
+		lead_ssh_env;
 
 		# If agent isn't running, start it.
-		ps -ef | \grep ${SSH_AGENT_PID} | \grep ssh-agent$ > /dev/null || {
+		agent_running ||
 			start_agent;
-		}
 	else
 		start_agent;
 	fi
 
 	# If agent is running, check that it has keys added
-	ps -ef | \grep ${SSH_AGENT_PID} | \grep ssh-agent$ > /dev/null && {
-		ssh-add -L //N  || {
+	agent_running && {
+		ssh-add -L >& /dev/null  || {
 			echo "\e[38;5;51mAdding ~/.ssh/id_rsa to ssh-agent.\e[m";
-			/usr/bin/ssh-add ~/.ssh/id_rsa;
+			/usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null;
 		}
 	}
 
