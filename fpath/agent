@@ -6,7 +6,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 	local SF=${(%):-%x};
 	local SD=${SF:h};
-	local SSH_ENV="$HOME/.ssh/agent-environment"
+	local SSH_ENV="$HOME/.ssh/agent-environment-$USER";
 
 	source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
 		{ echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
@@ -39,20 +39,20 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 	# Command code starts here
 
-	function start_agent() {
-		echo "\e[38;5;51mStarted new SSH agent.\e[m";
-		/usr/bin/ssh-agent | perl -pe 's/^echo.+$//' > "${SSH_ENV}";
-		chmod 600 "${SSH_ENV}";
-		source "${SSH_ENV}" > /dev/null;
-	}
-
 	function load_ssh_env() {
 		source "${SSH_ENV}" >& /dev/null
 	}
 
+	function start_agent() {
+		echo "\e[38;5;51mStarted new SSH agent.\e[m";
+		/usr/bin/ssh-agent | perl -pe 's/^echo.+$//' > "${SSH_ENV}";
+		chmod 600 "${SSH_ENV}";
+		lead_ssh_env;
+	}
+
 	function agent_running() {
 		# Introduce some randomness in cases of race condition
-		for ((cnt=0; cnt < 4; cnt++)) {
+		for ((cnt=0; cnt < 10; cnt++)) {
 			agent_is_running &&
 				break;
 			[[ $(( $RANDOM % 10 )) -lt 3 ]] &&
@@ -70,17 +70,18 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 			ps -ef | \grep ${SSH_AGENT_PID} | \grep ssh-agent$ >& /dev/null
 	}
 
-	# Source SSH settings, if applicable
+	if [[ ! -r "$SSH_AUTH_SOCK" || ! -w "$SSH_AUTH_SOCK" ]] {
+		if [ -f "${SSH_ENV}" ]; then
+			# Source SSH settings, if applicable
+			load_ssh_env;
 
-	if [ -f "${SSH_ENV}" ]; then
-		lead_ssh_env;
-
-		# If agent isn't running, start it.
-		agent_running ||
+			# If agent isn't running, start it.
+			agent_running ||
+				start_agent;
+		else
 			start_agent;
-	else
-		start_agent;
-	fi
+		fi
+	}
 
 	# If agent is running, check that it has keys added
 	agent_running && {
