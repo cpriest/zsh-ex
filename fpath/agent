@@ -2,6 +2,13 @@
 setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 () {
+	[[ -t 0 ]] || {
+		echo -e "\n--- STARTING UID=$UID --------\n" >&2;
+		echo "	-t 0 failed \$UID=$UID" >&2;
+		echo -e "\n--- ENDING ---------------\n" >&2;
+		return;
+	}
+
 	setopt LOCAL_OPTIONS LOCAL_TRAPS;
 
 	local SF=${(%):-%x};
@@ -37,58 +44,142 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 	}
 	trap on_exit EXIT;
 
-	# Command code starts here
+	echo -e "\n--- STARTING UID=$UID --------\n" >&2;
 
-	function load_ssh_env() {
-		source "${SSH_ENV}" >& /dev/null
-	}
-
-	function start_agent() {
-		echo "\e[38;5;51mStarted new SSH agent.\e[m";
-		/usr/bin/ssh-agent | perl -pe 's/^echo.+$//' > "${SSH_ENV}";
-		chmod 600 "${SSH_ENV}";
-		lead_ssh_env;
-	}
-
-	function agent_running() {
-		# Introduce some randomness in cases of race condition
-		for ((cnt=0; cnt < 10; cnt++)) {
-			agent_is_running &&
-				break;
-			[[ $(( $RANDOM % 10 )) -lt 3 ]] &&
-				break;
-
-			sleep $(( ($RANDOM % 10 / 30.0) + .15 ));	# If it's not running, give it 150-480ms
-			load_ssh_env;	# Try and re-load the environment
-		}
-	}
 
 	function agent_is_running() {
-		#ps ${SSH_AGENT_PID} doesn't work under cywgin
 
-		[[ -n "${SSH_AGENT_PID}" ]] &&
-			ps -ef | \grep ${SSH_AGENT_PID} | \grep ssh-agent$ >& /dev/null
 	}
 
-	if [[ ! -r "$SSH_AUTH_SOCK" || ! -w "$SSH_AUTH_SOCK" ]] {
-		if [ -f "${SSH_ENV}" ]; then
-			# Source SSH settings, if applicable
-			load_ssh_env;
+	# Tests whether the current environment variables have a valid/accessible SSH_AUTH_SOCK
+	# Presently this assumes that the socket file, if it exists and is readable/writable, then
+	# it is valid which appears to be the case with local agents
+	function agent_environment_is_valid() {
+		echo "agent_environment_is_valid()" >&2;
 
-			# If agent isn't running, start it.
-			agent_running ||
-				start_agent;
-		else
-			start_agent;
-		fi
+		echo "	\$UID=$UID, \$SSH_AUTH_SOCK = '$SSH_AUTH_SOCK'" >&2;
+		[[ -n "$SSH_AUTH_SOCK" ]] &&
+			ls -alh --color $SSH_AUTH_SOCK >&2;
+		# if [[ -r "$SSH_AUTH_SOCK" ]] {
+		# 	echo "	-r \$SSH_AUTH_SOCK is true"
+		# } else {
+		# 	echo "	-r \$SSH_AUTH_SOCK is false"
+		# }
+		# if [[ -w "$SSH_AUTH_SOCK" ]] {
+		# 	echo "	-w \$SSH_AUTH_SOCK is true"
+		# } else {
+		# 	echo "	-w \$SSH_AUTH_SOCK is false"
+		# }
+		echo >&2;
+
+		# Must be able to read/write to SSH_AUTH_SOCK or environment is not valid
+		[[ -r "$SSH_AUTH_SOCK" ]] || { echo -e "	Returning Invalid (-r)" >&2; return 1; }
+		[[ -w "$SSH_AUTH_SOCK" ]] || { echo -e "	Returning Invalid (-w)" >&2; return 1; }
+
+		echo -e "	Returning Valid\n" >&2;
+
+		return 0;
 	}
 
-	# If agent is running, check that it has keys added
-	agent_running && {
-		ssh-add -L >& /dev/null  || {
+	# Starts an ssh-agent if it can obtain the lockfile, otherwise it returns immediately
+	function start_single_agent() {
+		(
+			# If we can't get the lock, exit sub-shell
+			flock -n 9 || exit 1;
+
+			sleep 3;	# Temporary for testing
+
+			# We have the lock, start an agent
+			echo "\e[38;5;51mStarted new SSH agent.\e[m";
+			/usr/bin/ssh-agent | perl -pe 's/^echo.+$//' > "${SSH_ENV}";
+			chmod 600 "${SSH_ENV}";
+
+			# Remove the lock file
+			rm ${SSH_ENV}-lock;
+		) 9>${SSH_ENV}-lock
+	}
+
+	# If there is a readable SSH_ENV file, load it
+	function load_env() {
+		[[ -r "${SSH_ENV}" ]] || {
+			echo -e "\nload_env() - ${SSH_ENV} not readable.\n" >&2;
+			return 1;
+		}
+
+		echo "Loading ssh environment: ${SSH_ENV}" >&2;
+		ls -alh --color ${SSH_ENV} >&2;
+		source "${SSH_ENV}" >& /dev/null
+		echo >&2;
+	}
+
+	# Retries repeatedly to obtain a lock and if obtained, starts the agent
+	#	If unable to obtain the lock, then sleep a bit and try to load
+	function try_start_agent_forever() {
+		# retry until a break condition
+		while [[ true ]] {
+			# try and load the environment
+			load_env &&
+				# If we now have a valid environment, break from loop
+				agent_environment_is_valid &&
+					break;
+
+			# Otherwise try and start the agent (flock protected)
+			start_single_agent || {
+				# Not allowed to start the agent
+				sleep 2;
+				echo "Could not obtain the lock, trying loop again." >&2;
+			}
+
+			# Let it re-loop, to load & test
+		}
+		echo "Presumably, we have a valid, usable agent loaded into the environment, details:";
+		{
+			echo "\$UID=$UID, \$SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+			ls -alh --color $SSH_AUTH_SOCK;
+		} |& perl -pe 's#^#\t#'
+	}
+
+	# Assertion that the agent has loaded keys
+	function agent_has_keys() {
+		# Returns exit code 0 if keys are loaded
+		ssh-add -L >& /dev/null
+	}
+
+	# While the agent does not have any keys, try to add them
+	function try_add_keys_forever() {
+		echo "try_add_keys_forever()" >&2
+		COUNT=0;
+		while [[ true ]] {
+			echo "In While Loop" >&2
+			agent_has_keys &&
+				echo "breaking from loop" >&2 &&
+				break;
+
 			echo "\e[38;5;51mAdding ~/.ssh/id_rsa to ssh-agent.\e[m";
-			/usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null;
+			timeout 300s /usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null
 		}
 	}
 
-} "$@";
+	# If agent environment isn't valid, then
+	agent_environment_is_valid ||
+		try_start_agent_forever;
+
+	agent_environment_is_valid &&
+		try_add_keys_forever;
+
+	# start_agent_save_environment()
+	# 	acquire start agent lock
+	# 	start agent
+	# 	save to disk & environment
+	# 	add keys to agent
+	# 	maybe release lock?  Or maybe release lock after ssh-add
+
+	# IF agent is not in environment
+	# 	 load environment from disk
+
+	# IF agent environment is not valid then
+	# 	start_agent_save_environment()
+
+	echo -e "\n--- ENDING ---------------\n" >&2;
+
+} "$@" 5>/dev/null
