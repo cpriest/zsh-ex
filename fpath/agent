@@ -182,4 +182,4 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 	echo -e "\n--- ENDING ---------------\n" >&2;
 
-} "$@" 5>/dev/null
+} "$@" 2>/dev/null
