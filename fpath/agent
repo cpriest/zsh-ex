@@ -59,7 +59,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 
 		echo "	\$UID=$UID, \$SSH_AUTH_SOCK = '$SSH_AUTH_SOCK'" >&2;
 		[[ -n "$SSH_AUTH_SOCK" ]] &&
-			ls -alh --color $SSH_AUTH_SOCK >&2;
+			\ls -alh --color $SSH_AUTH_SOCK >&2;
 		# if [[ -r "$SSH_AUTH_SOCK" ]] {
 		# 	echo "	-r \$SSH_AUTH_SOCK is true"
 		# } else {
@@ -107,7 +107,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 		}
 
 		echo "Loading ssh environment: ${SSH_ENV}" >&2;
-		ls -alh --color ${SSH_ENV} >&2;
+		\ls -alh --color ${SSH_ENV} >&2;
 		source "${SSH_ENV}" >& /dev/null
 		echo >&2;
 	}
@@ -135,7 +135,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 		echo "Presumably, we have a valid, usable agent loaded into the environment, details:";
 		{
 			echo "\$UID=$UID, \$SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-			ls -alh --color $SSH_AUTH_SOCK;
+			\ls -alh --color $SSH_AUTH_SOCK;
 		} |& perl -pe 's#^#\t#'
 	}
 
@@ -158,6 +158,11 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 			echo "\e[38;5;51mAdding ~/.ssh/id_rsa to ssh-agent.\e[m";
 			timeout 300s /usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null
 		}
+	}
+
+	which ssh-agent >&/dev/null || {
+		vmsg 1 "No ssh-agent executable found, stopping.";
+		return;
 	}
 
 	# If agent environment isn't valid, then
