@@ -59,7 +59,7 @@ source_highlight() {
 #
 check_pygmentize() {
 	[[ -x ${EXEC_PYG} ]] &&
-		${EXEC_PYG} -L lexers | grep filenames | pcregrep -o "\*.\w+" | sort | uniq | eat pcregrep "${EXT}"
+		${EXEC_PYG} -L lexers | grep filenames | pcregrep -o "\*.\w+" | sort | uniq | eat pcregrep "\\*\\.${EXT}\\b";
 }
 
 #
