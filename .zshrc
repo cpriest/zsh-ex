@@ -6,6 +6,8 @@
 
 	export ZEX_DIR=$SD;
 
+	. ~/.config/zsh-ex/env.zshrc;
+
 	init_config() {
 		[[ ! -d ~/.config || ! -d ~/.config/zsh-ex ]] && {
 			mkdir -p ~/.config/zsh-ex;
