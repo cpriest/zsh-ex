@@ -156,7 +156,11 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 				break;
 
 			echo "\e[38;5;51mAdding ~/.ssh/id_rsa to ssh-agent.\e[m";
-			timeout 300s /usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null
+			timeout 300s /usr/bin/ssh-add ~/.ssh/id_rsa > /dev/null || {
+				echo "\e[31m    Failed to add ~/.ssh/id_rsa to ssh-agent, giving up.\e[m";
+				break;
+			}
+			sleep 1;
 		}
 	}
 
