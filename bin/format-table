@@ -34,6 +34,6 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
 	trap on_exit EXIT;
 
 	# Command code starts here
-	\perl -pe 's!\s{2,}!\036!g' | \column -t --separator $'\036'
+	\perl -pe 's!\s{2,}!\036!g' | \column -t -s $'\036'
 
 } "$@";
