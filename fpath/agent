@@ -164,10 +164,6 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
 		}
 	}
 
-	# If vsh.exe is available, we'll use that and rely on Activator
-	\which vsh.exe >&/dev/null && 
-		return;
-
 	which ssh-agent >&/dev/null || {
 		vmsg 1 "No ssh-agent executable found, stopping.";
 		return;
