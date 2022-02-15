@@ -1,0 +1,74 @@
+#!/bin/zsh
+
+() {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS PIPEFAIL;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
+
+	TRAPABRT() { return $(( 128 + $1 )); }
+
+	help() {
+		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
+		kill -ABRT $$;
+	}
+
+	error() {
+		echo "\e[31;1m$@\e[m";
+		help;
+	}
+
+	vmsg() {
+		[[ $1 > $VERBOSITY ]] &&
+			return;
+		shift;	# Drop $1
+		echo $*;
+	}
+
+	zparseopts -D -E v+=VERBOSITY h=HELP ||
+		help;
+
+	VERBOSITY=${#VERBOSITY}
+
+	[[ "$HELP" != '' ]] &&
+		help;
+
+	TAIL="\tail";
+	TAIL_OPTS='-F --quiet -n 10000';
+
+	GRCAT="\grcat";
+	GRCAT_OPTS="conf.lumen-log";
+
+	FZF="\fzf";
+	export FZF_OPTS='--no-sort --cycle --height=100% --exact --ansi --tabstop=4 --layout=reverse-list';
+
+	eval "$TAIL $TAIL_OPTS $* |& $GRCAT $GRCAT_OPTS |& { $FZF $FZF_OPTS; return; }";
+
+} "$@";
+
+##																									\e[m
+##	tz [options] {file}
+##		Tails {file} from the beginning, following the file and pipes the output to fzf with
+##		some specific options for easily viewing & filtering lines of a file.
+##																									\e[m
+##		\e[31;1moptions\e[m
+##																									\e[m
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
+##																									\e[m
+#X			-H		  Shows help information for \e[37;1mdocker help exec\e[m
+#X																									\e[m
+#X			-c \e[32;1mname\e[m   Use \e[32;1mname\e[m as the container instead of \e[37;1m$DE_CONTAINER\e[m
+#X			-C \e[32;1mname\e[m   Set the \e[37;1m$DE_CONTAINER\e[m to \e[32;1mname\e[m
+#X				  		  Example: de -C blah sets the DE_CONTAINER environment variable to blah
+#X																									\e[m
+#X			-n		  Do not perform expansion on \e[32;m{cmd}\e[m
+##
+
+#setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+#
+#	TODO:
+#		Does above setopt LOCAL_OPTIONS work for a sourced file
+#		  --> No, it doesn't, but it does at the function level
+#
