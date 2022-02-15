@@ -31,6 +31,6 @@
 
 	PATH="$SD/bin:$PATH";
 
-	source $SD/inc/*.zsh;
+	include $SD/inc/*.zsh;
 }
 
