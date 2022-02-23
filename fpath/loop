@@ -1,0 +1,56 @@
+#!/bin/zsh
+#setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
+() {
+	setopt LOCAL_OPTIONS LOCAL_TRAPS;
+
+	local SF=${(%):-%x};
+	local SD=${SF:h};
+
+##																									\e[m
+##	loop {cmd}
+##		Prints the date and executes {cmd} every 1s, clearing the screen each time.
+## 		A key press will skip the remaining 1s and re-display immediately.  A 'q' will
+##		quit the loop
+##																									\e[m
+
+	TRAPABRT() { return $(( 128 + $1 )); }
+
+	help() {
+		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
+		kill -ABRT $$;
+	}
+
+	error() {
+		echo "\e[31;1m$@\e[m";
+		help;
+	}
+
+	vmsg() {
+		[[ $1 > $VERBOSITY ]] &&
+			return;
+		shift;	# Drop $1
+		echo $*;
+	}
+
+	zparseopts -D -E v+=VERBOSITY h=HELP ||
+		help;
+
+	VERBOSITY=${#VERBOSITY}
+
+	[[ "$HELP" ]] &&
+		help;
+
+	[[ ${#*} = 0 ]]       && error "No {cmd} specified for execution";
+
+	# Drop -- if it's the first parameter
+	[[ $1 == "--" ]] && shift;
+
+	while [[ true ]] {
+		clear;
+		date;
+		eval "$*";
+		read -k -t 1 inp && [[ $inp == 'q' ]] && return;
+	}
+
+} "$@";
