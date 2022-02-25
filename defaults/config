@@ -30,6 +30,11 @@ XD_FORCE_IDEKEY="";
 # Additional options to use with xdebug configuration
 XD_CONFIG_OTHER="";
 
+# An array of {glob}={grcat} entries where {glob} is any valid zsh glob to match
+# the filename passed to tz and {grcat} is the name of a grcat config file located
+# in a place grcat will look for it (~/.grc among others).
+TZ_GRCAT_GLOBS=();
+
 # Pattern to use with `psp`, could be configured
 case `hostname -s` in
 	*) PSP_PCRE="bin/php";
