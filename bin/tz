@@ -28,10 +28,10 @@
 	}
 
 	# Default Options
-	TAIL_N=50000
+	_TAIL_N=(-n 50000);
 
 	# Parse Options
-	zparseopts -D -E -K v+=VERBOSITY h=HELP n:=TAIL_N ||
+	zparseopts -D -E -K v+=VERBOSITY h=HELP n:=_TAIL_N ||
 		help;
 
 	VERBOSITY=${#VERBOSITY}
@@ -44,17 +44,19 @@
 	# Execute
 
 	TAIL="\tail";
-	TAIL_OPTS="-F --quiet -n ${TAIL_N}";
+	TAIL_OPTS="-F --quiet ${_TAIL_N}";
+
+	pv TAIL_OPTS;
 
 	GRCAT="\grcat";
 	GRCAT_OPTS="conf.lumen-log";
 
 	FZF="\fzf";
-	export FZF_OPTS="--no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=reverse-list --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
+	FZF_OPTS="--no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=reverse-list --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
 
-	CMD="$TAIL $TAIL_OPTS $* |& $GRCAT $GRCAT_OPTS |& { $FZF $FZF_OPTS; return; }";
+	CMD="$TAIL $TAIL_OPTS $* |& $GRCAT $GRCAT_OPTS |& $FZF $FZF_OPTS; return";
 	{ set -x;
-		eval "$CMD"
+		eval "$CMD";
 	}
 
 } "$@";
