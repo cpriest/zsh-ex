@@ -1,13 +1,14 @@
 #!/bin/zsh
 
 () {
-	setopt LOCAL_OPTIONS LOCAL_TRAPS PIPEFAIL;
+	setopt LOCAL_OPTIONS LOCAL_TRAPS PIPE_FAIL;
 
 	source ~/.config/zsh-ex/config;
 
 	local SF=${(%):-%x};
 	local SD=${SF:h};
 
+	TRAPINT() { return $(( 128 + $1 )); }
 	TRAPABRT() { return $(( 128 + $1 )); }
 
 	help() {
@@ -39,25 +40,32 @@
 	[[ "$HELP" != '' ]] &&
 		help;
 
-	pv TZ_GRCAT_GLOBS
+	# pv TZ_GRCAT_GLOBS
 
 	# Execute
 
 	TAIL="\tail";
 	TAIL_OPTS="-F --quiet ${_TAIL_N}";
 
-	pv TAIL_OPTS;
-
-	GRCAT="\grcat";
-	GRCAT_OPTS="conf.lumen-log";
+	\which grcat >&/dev/null && {
+		GRCAT="\grcat";
+		GRCAT_OPTS="conf.lumen-log";
+		: return 0
+	} || {
+		# no grcat available, use cat
+		GRCAT="\cat";
+		GRCAT_OPTS="";
+	}
 
 	FZF="\fzf";
-	FZF_OPTS="--no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=reverse-list --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
+	# FZF_OPTS="--tac --no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=default --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
+	FZF_OPTS="--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'enter:ignore' --bind 'esc:cancel'";
 
-	CMD="$TAIL $TAIL_OPTS $* |& $GRCAT $GRCAT_OPTS |& $FZF $FZF_OPTS; return";
-	{ set -x;
-		eval "$CMD";
-	}
+	eval "$TAIL $TAIL_OPTS $* | $GRCAT $GRCAT_OPTS | $FZF $FZF_OPTS;";
+	# eval "$CMD";
+
+	# stdbuf can be used to adjust buffering, can't seem to get it to work w/ grcat
+	#	stdbuf -i0 -o0
 
 } "$@";
 
