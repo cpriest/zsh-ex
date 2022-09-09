@@ -28,6 +28,21 @@
 		echo $*;
 	}
 
+	upscale_match() {
+		UPSCALER="";
+		for x (${UPSCALER_GLOBS[@]}) {
+			SPLIT=(${(s:=:)x});
+			GLOB=${SPLIT[1]};
+
+			[[ "$*" == ${~GLOB} ]] || 
+				continue;
+
+			UPSCALER="$ZSX_CFG/upscalers/${SPLIT[2]:t}";
+			[[ -x "$UPSCALER" ]] ||
+				error "An upscaler matched on $GLOB but $UPSCALER is not an executable file.";
+		}
+	}
+
 	# Default Options
 	_TAIL_N=(-n 50000);
 
@@ -40,42 +55,31 @@
 	[[ "$HELP" != '' ]] &&
 		help;
 
-	# pv TZ_GRCAT_GLOBS
+	# See if there is a match for the filepath in UPSCALE_GLOBS from zsh-ex/config
+	upscale_match "$*";
 
 	# Execute
 
 	TAIL="\tail";
 	TAIL_OPTS="-F --quiet ${_TAIL_N}";
 
-	\which grcat >&/dev/null && {
-		GRCAT="\grcat";
-		GRCAT_OPTS="conf.lumen-log";
-		: return 0
-	} || {
-		# no grcat available, use cat
-		GRCAT="\cat";
-		GRCAT_OPTS="";
-	}
-
 	FZF="\fzf";
 	# FZF_OPTS="--tac --no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=default --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
-	FZF_OPTS="--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'enter:ignore' --bind 'esc:cancel'";
+	FZF_OPTS="--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel'";
 
-	eval "$TAIL $TAIL_OPTS $* | $GRCAT $GRCAT_OPTS | $FZF $FZF_OPTS;";
-	# eval "$CMD";
-
-	# stdbuf can be used to adjust buffering, can't seem to get it to work w/ grcat
-	#	stdbuf -i0 -o0
+	{ set -x; 
+	eval "$TAIL $TAIL_OPTS $* | $UPSCALER | $FZF $FZF_OPTS;";
+	}
 
 } "$@";
 
 ##																									\e[m
 ##	tz [options] {file}
-##		Tails the last -n lines from {file}, following the file and pipes the output through grcat
-##		to fzf with some specific options for easily viewing & filtering lines of a file. 
-##		tz will attempt to pick a grcat configuration file based on 
+##		\e[1mTails the\e[m last -n lines from \e[1m{file}\e[m, following the file (-F) \e[1mand pipes it through the\e[m
+##		first matching \e[1;38;5;6mupscaler\e[m (see zsh-ex/config UPSCALER_GLOBS), if any, \e[1mto fzf\e[m with some 
+##		specific options for easily viewing & filtering lines of a file. 
 ##																									\e[m
-##		\e[31;1moptions\e[m
+##		\e[31;1mOptions\e[m
 ##																									\e[m
 ##			-h		  Shows this help information
 ##			-v		  Increases verbosity, may be repeated multiple times
@@ -83,16 +87,4 @@
 ##		\e[31;1mOptions passed to tail\e[m
 ##			-n \e[32;1m{num}\e[m 	Defaults to 50,000
 ##																									\e[m
-#X			-c \e[32;1mname\e[m   Use \e[32;1mname\e[m as the container instead of \e[37;1m$DE_CONTAINER\e[m
-#X			-C \e[32;1mname\e[m   Set the \e[37;1m$DE_CONTAINER\e[m to \e[32;1mname\e[m
-#X				  		  Example: de -C blah sets the DE_CONTAINER environment variable to blah
-#X																									\e[m
-#X			-n		  Do not perform expansion on \e[32;m{cmd}\e[m
 ##
-
-#setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
-
-#
-#	TODO:
-#		implement TZ_GRCAT_GLOBS from zsh-ex/config
-#

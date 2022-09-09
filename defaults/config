@@ -11,6 +11,11 @@
 #
 ################################################################################
 
+# This should get moved to a central file that is included
+XDG_CONFIG_HOME="${XDG_CONFI_HOME:-$HOME/.config}";
+
+# Base configuration directory for zsh-ex
+ZSX_CFG="${XDG_CONFIG_HOME}/zsh-ex"
 
 # If our REMOTE_HOST (as determined by $SSH_CLIENT) is present in this array
 # a local proxy will be launched and used
@@ -30,10 +35,10 @@ XD_FORCE_IDEKEY="";
 # Additional options to use with xdebug configuration
 XD_CONFIG_OTHER="";
 
-# An array of {glob}={grcat} entries where {glob} is any valid zsh glob to match
-# the filename passed to tz and {grcat} is the name of a grcat config file located
-# in a place grcat will look for it (~/.grc among others).
-TZ_GRCAT_GLOBS=();
+# An array of {glob}={filename} entries where {glob} is any valid zsh glob to match
+# the filename passed to tz and {filename} is the name of an executable file located in $ZSX_CFG/upscalers.
+# Output will be piped through this command to upscale the (typically) log file in whatever way desired.
+UPSCALER_GLOBS=();
 
 # Pattern to use with `psp`, could be configured
 case `hostname -s` in
