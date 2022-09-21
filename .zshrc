@@ -10,7 +10,7 @@
 
 	init_config() {
 		[[ ! -d ~/.config || ! -d ~/.config/zsh-ex ]] && {
-			mkdir -p ~/.config/zsh-ex;
+			mkdir -p ~/.config/zsh-ex{,/upscalers};
 		}
 
 		INSTALLED=();
