@@ -29,7 +29,7 @@
 	}
 
 	upscale_match() {
-		UPSCALER="";
+		UPSCALER="cat";
 		for x (${UPSCALER_GLOBS[@]}) {
 			SPLIT=(${(s:=:)x});
 			GLOB=${SPLIT[1]};
