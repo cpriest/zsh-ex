@@ -8,6 +8,8 @@
 	# Source directory of current script
 	local SD=${${(%):-%x}:h};
 
+	export ZSH_DISABLE_COMPFIX=true;
+
 	ZEX_DIR=$SD;
 
 	# Over-ride compinit with my own function to pass along -C because
