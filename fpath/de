@@ -32,6 +32,7 @@
 ##				  		  Example: de -C blah sets the DE_CONTAINER environment variable to blah
 ##																									\e[m
 ##			-n		  Do not perform expansion on \e[32;m{cmd}\e[m
+##			-N		  Do not loosly match container name on \e[32;m-c\e[m
 ##
 
 	TRAPABRT() { return $(( 128 + $1 )); }
@@ -57,7 +58,7 @@
 		echo $*;
 	}
 
-	zparseopts -D -E v+=VERBOSITY h=HELP H=_DE_HELP n=NO_EXPANSION c:=_CONTAINER C:=_CONTAINER_EXPORT d=_DE_OPTS i=_DE_OPTS -privileged=_DE_OPTS t=_DE_OPTS u:=_DE_OPTS ||
+	zparseopts -D -E v+=VERBOSITY h=HELP H=_DE_HELP n=NO_EXPANSION N=NO_LOOSE c:=_CONTAINER C:=_CONTAINER_EXPORT d=_DE_OPTS i=_DE_OPTS -privileged=_DE_OPTS t=_DE_OPTS u:=_DE_OPTS ||
 		help;
 
 	VERBOSITY=${#VERBOSITY}
@@ -84,6 +85,14 @@
 
 	[[ ${#*} = 0 ]]       && error "No {cmd} specified for execution";
 	[[ -z "$CONTAINER" ]] && error "No container specified via -c or \$DE_CONTAINER environment variable";
+
+	if [[ -z $NO_LOOSE ]] {
+		_CONTAINER=`$DOCKER ps -a --format '{{.Names}}' | \grep -Pi "$CONTAINER"`;
+		[[ -n "$_CONTAINER" ]] && {
+			echo "Expanded $CONTAINER to container $_CONTAINER";
+			CONTAINER=$_CONTAINER;
+		}
+	}
 
 	# Drop -- if it's the first parameter
 	[[ $1 == "--" ]] && shift;
