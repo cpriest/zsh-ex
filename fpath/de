@@ -14,10 +14,14 @@
 	local SD=${SF:h};
 
 ##																									\e[m
-##	de [options] [--] {cmd}
-##		Executes the given command in the container specified by environment variable
-## 		$DE_CONTAINER.  {cmd} will be expanded if necessary, assumes PWD matches
-##		the container.
+##	de [options] [container] [--] [cmd]
+##		Executes the given command in the container as described below.  [cmd] will be expanded if
+##	    necessary to resolve any alias, assumes PWD matches the container.
+##																									\e[m
+##	    \e[31;1m[container]\e[m
+##	    If no -c option is given and no DE_CONTAINER environment variable is set, the first
+##	    argument will be used as the container name.  If the container name is not an exact match, a
+##	    loose match will be attempted.  If the container name is not found, an error will be thrown.
 ##																									\e[m
 ##		\e[31;1moptions\e[m
 ##			Any of the options available to docker exec, -t -i assumed
@@ -48,7 +52,7 @@
 
 	error() {
 		echo "\e[31;1m$@\e[m";
-		help;
+		kill -ABRT $$;
 	}
 
 	vmsg() {
@@ -83,24 +87,43 @@
 
 	DE_OPTS=($_DE_OPTS -ti)
 
-	[[ ${#*} = 0 ]]       && error "No {cmd} specified for execution";
+	# If we have no CONTAINER yet, try to use the first argument
+	[[ -z "$CONTAINER" ]] && {
+		CONTAINER=$1;
+		shift;
+	}
+
 	[[ -z "$CONTAINER" ]] && error "No container specified via -c or \$DE_CONTAINER environment variable";
 
 	if [[ -z $NO_LOOSE ]] {
 		_CONTAINER=`$DOCKER ps -a --format '{{.Names}}' | \grep -Pi "$CONTAINER"`;
 		[[ -n "$_CONTAINER" ]] && {
-			echo "Expanded $CONTAINER to container $_CONTAINER";
+			vmsg 1 "Expanded $CONTAINER to container $_CONTAINER";
 			CONTAINER=$_CONTAINER;
 		}
 	}
 
+	# Verify we have a valid container
+	$DOCKER ps -a --format '{{.Names}}' | \grep -Pi "$CONTAINER" > /dev/null ||
+		error "Could not find container with '$CONTAINER'";
+
+	# Detect shells available in container
+	_SHELL=$($DOCKER exec ${CONTAINER} sh -c 'type -p zsh bash sh 2>/dev/null' | head -n 1);
+	[[ -z "$_SHELL" ]] &&
+		error "Could not detect shell in container (via \`which zsh bash sh\`)";
+	_SHELL=${_SHELL##*/};
+
 	# Drop -- if it's the first parameter
 	[[ $1 == "--" ]] && shift;
 
+	[[ ${#*} = 0 ]] &&
+		set $_SHELL;
+
+	# Attempt to expand aliases, functions, etc
 	if [[ -n $NO_EXPANSION ]] {
 		EXEC_CMD="$1";
 	} else {
-		EXEC_CMD="${1:c}";
+		EXEC_CMD="${1:c:t}";
 
 		# If expanding $1 as a command (:c) is the same as $1
 		if [[ "${1:c}" == "$1" ]] {
@@ -114,35 +137,57 @@
 			}
 		}
 	}
-
 	# Remove the first argument, its now resolved to $EXEC_CMD
 	shift;
 
-	# If we're just running bash, clear out the exec command
-	[[ "$EXEC_CMD" == "/bin/bash" ]] &&
-		EXEC_CMD="";
+
+	case $_SHELL {
+		zsh)
+			RCFILE=~/.zshrc;
+			PROFILE_FN=.zsh_profile;
+			;;
+		bash)
+			RCFILE=~/.bashrc;
+			PROFILE_FN=.bash_profile;
+			;;
+		sh)
+			RCFILE='';
+			PROFILE_FN=.profile;
+			;;
+	}
 
 	TMP=`mktemp`;
 	{
 		# `alias -rL | grep "'"`;
 		cat <<-EOF
-			`emulate bash -c 'export -p' | \pcregrep -v '^export (-|(SHELL|SHLVL|SUDO_|PWD|OLDPWDSUDO_|SSH_TTY|LESSOPEN|LOGNAME|USER|USERNAME|PATH|HOME)[^=]*=)'`;
+			`emulate $_SHELL -c 'export -p' | \pcregrep -v '^export (-|(SHELL|SHLVL|SUDO_|PWD|OLDPWDSUDO_|SSH_TTY|LESSOPEN|LOGNAME|USER|USERNAME|PATH|HOME)[^=]*=)'`;
+		EOF
 
-			[[ -e ~/.bashrc ]] && source ~/.bashrc;
+		[[ -n "$RCFILE" ]] && {
+			cat <<-EOF
+				[[ -e $RCFILE ]] && source $RCFILE;
+			EOF
+		}
 
+		cat <<-EOF
 			cd ~;	# Fallback to home directory in case final cd doesn't work
 			cd $PWD;
 		EOF
 
-		[[ -n "$EXEC_CMD" ]] &&
-			echo "$EXEC_CMD ${(@q)*}; \nexit \$?;";
+		[[ -n "$EXEC_CMD" ]] && {
+			cat <<-EOF
+				$EXEC_CMD ${(@q)*}; 
+				exit \$?;
+			EOF
+		}
 	} >> $TMP;
 
 	trap on_exit EXIT;
 
-	eval "$DOCKER cp $TMP $CONTAINER:/root/.bash_profile";
+	[[ -n "$PROFILE_FN" ]] &&
+		eval "$DOCKER cp $TMP $CONTAINER:/root/$PROFILE_FN";
 
-	CMD="$DOCKER exec ${DE_OPTS} ${CONTAINER} bash -li";
+	CMD="$DOCKER exec ${DE_OPTS} ${CONTAINER} $_SHELL -li";
 
 	if [[ $VERBOSITY > 1 ]] {
 		vmsg 1 $CMD;
