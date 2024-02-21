@@ -96,7 +96,7 @@
 	[[ -z "$CONTAINER" ]] && error "No container specified via -c or \$DE_CONTAINER environment variable";
 
 	if [[ -z $NO_LOOSE ]] {
-		_CONTAINER=`$DOCKER ps -a --format '{{.Names}}' | \grep -Pi "$CONTAINER"`;
+		_CONTAINER=`$DOCKER ps -a --format '{{.Names}}' | \grep -Pi "$CONTAINER" | head -n 1`;
 		[[ -n "$_CONTAINER" ]] && {
 			vmsg 1 "Expanded $CONTAINER to container $_CONTAINER";
 			CONTAINER=$_CONTAINER;
@@ -108,7 +108,7 @@
 		error "Could not find container with '$CONTAINER'";
 
 	# Detect shells available in container
-	_SHELL=$($DOCKER exec ${CONTAINER} sh -c 'type -p zsh bash sh 2>/dev/null' | head -n 1);
+	_SHELL=$($DOCKER exec ${CONTAINER} sh -c 'type -p zsh bash sh 2>/dev/null' | grep -v "not found" | head -n 1);
 	[[ -z "$_SHELL" ]] &&
 		error "Could not detect shell in container (via \`which zsh bash sh\`)";
 	_SHELL=${_SHELL##*/};
@@ -184,6 +184,9 @@
 
 	trap on_exit EXIT;
 
+	[[ -n "$RCFILE" ]] &&
+		eval "$DOCKER cp $RCFILE $CONTAINER:/root/${RCFILE##*/}";
+		
 	[[ -n "$PROFILE_FN" ]] &&
 		eval "$DOCKER cp $TMP $CONTAINER:/root/$PROFILE_FN";
 
