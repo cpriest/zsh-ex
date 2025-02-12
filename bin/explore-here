@@ -1,0 +1,54 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
+
+() {
+	source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
+		{ echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
+
+##																									\e[m
+##	explore [path]
+##		Opens an explorer window to [path] or `pwd` if not provided.  This will prefer to use 
+##		Directory Opus via dopusrt.exe if that is found
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
+##
+
+	# Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
+	zparseopts -D -E v+=VERBOSITY h=HELP ||
+		help;
+
+	# Capture the verbosity number (number of -vvv's)
+	VERBOSITY=${#VERBOSITY}
+
+	# Display help if requested
+	[[ "$HELP" ]] &&
+		help;
+
+	# Called on exit from this point forward
+	on_exit() {
+
+	}
+	# trap on_exit EXIT;
+
+	# Command code starts here
+	OPENPATH="${1:-`pwd`}";
+	MODE=explorer
+	DOPUS_PATH="$(\whence -p dopusrt.exe)"
+	[[ -n "$DOPUS_PATH" ]] && 
+		MODE=dopus;
+
+	OPENPATH="`wslpath -w \"$OPENPATH\"`";
+
+	case $MODE {
+		explorer)
+			exec explorer.exe "$OPENPATH";
+			;;
+		dopus)
+			dopusrt.exe /open "$OPENPATH";
+			;;
+	}
+
+
+} "$@";
