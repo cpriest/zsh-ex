@@ -68,7 +68,11 @@
 	# FZF_OPTS="--tac --no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=default --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
 	FZF_OPTS="--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel'";
 
-	{ set -x; 
+	[[ -z "$*" ]] && {
+		# Inline fzf mode
+		eval "$FZF $FZF_OPTS";
+		: 
+	} || { set -x; 
 	eval "$TAIL $TAIL_OPTS $* | $UPSCALER | $FZF $FZF_OPTS;";
 	}
 

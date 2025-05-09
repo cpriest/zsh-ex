@@ -1,0 +1,66 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
+
+() {
+    source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
+        { echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
+
+##																									\e[m
+##	k8s-debug [options] {pod}
+##		Splits input lines by two or more spaces/tabs and reformats into appropriately sized columns
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			-c		  The container to debug (defaults to the first pod)
+##			-x		  The context to use (defaults to the current context)
+##			-h		  Shows this help information
+##			-v		  Increases verbosity, may be repeated multiple times
+##
+
+    # Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
+    zparseopts -D -E v+=VERBOSITY h=HELP c:=CONTAINER x:=CONTEXT ||
+        help;
+
+    # Capture the verbosity number (number of -vvv's)
+    VERBOSITY=${#VERBOSITY}
+
+    # Display help if requested
+    [[ "$HELP" ]] &&
+        help;
+
+    mkdir -p ~/tmp;
+
+    # Called on exit from this point forward
+    on_exit() {
+        echo "cleaning up...";
+        kill -TERM -$$ 2>/dev/null;
+    }
+    trap on_exit EXIT;
+
+	MY_PID=$$
+
+    # Command code starts here
+
+    OPTS=();
+	EX_OPTS=();
+    [[ -n "${CONTEXT[2]}" ]] && OPTS=($OPTS --context=${CONTEXT[2]})
+    [[ -n "${CONTAINER[2]}" ]] && EX_OPTS=($EX_OPTS --target=${CONTAINER[2]})
+    POD=$1
+
+	set -x;
+    # Start the port-forward loop in the background
+    {
+        while kill -0 $MY_PID 2>/dev/null; do
+            kubectl port-forward $OPTS $POD 22:22 9222:9222 &
+            PF_PID=$!
+            wait $PF_PID
+            echo "\e[31mPort-forward process exited. Restarting...\e[";
+			sleep 1;
+        done
+    } &
+
+	sleep 1;
+
+    # Run kubectl exec in the foreground
+    kubectl debug $OPTS $EX_OPTS $POD --share-processes --profile=sysadmin --image=gcr.io/resgen-143217/sftp-sidecar -it
+
+} "$@";
