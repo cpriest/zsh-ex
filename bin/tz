@@ -1,15 +1,15 @@
 #!/bin/zsh
 
 () {
-	setopt LOCAL_OPTIONS LOCAL_TRAPS PIPE_FAIL;
+	setopt LOCAL_OPTIONS PIPE_FAIL;
 
 	source ~/.config/zsh-ex/config;
 
 	local SF=${(%):-%x};
 	local SD=${SF:h};
 
-	TRAPINT() { return $(( 128 + $1 )); }
-	TRAPABRT() { return $(( 128 + $1 )); }
+	# TRAPINT() { return $(( 128 + $1 )); }
+	# TRAPABRT() { return $(( 128 + $1 )); }
 
 	help() {
 		print -l "`cat $SF | \pcregrep -o1 '^##\t(.+)$'`";
@@ -61,19 +61,27 @@
 
 	# Execute
 
-	TAIL="\tail";
-	TAIL_OPTS="-F --quiet ${_TAIL_N}";
+	TAIL="tail";
+	TAIL_OPTS=(-F --quiet ${_TAIL_N});
 
-	FZF="\fzf";
-	# FZF_OPTS="--tac --no-sort --height=100% --exact --ansi --no-expect --tabstop=4 --layout=default --bind 'change:last' --bind 'esc:clear-query+last' --bind 'enter:last'";
-	FZF_OPTS="--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel'";
+	FZF="fzf";
+	FZF_OPTS=(--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel');
 
 	[[ -z "$*" ]] && {
 		# Inline fzf mode
-		eval "$FZF $FZF_OPTS";
+		$FZF $FZF_OPTS;
 		: 
-	} || { set -x; 
-	eval "$TAIL $TAIL_OPTS $* | $UPSCALER | $FZF $FZF_OPTS;";
+	} || { 
+		# We create a fifo to handle the pipe from tail to fzf so that when fzf exits, we can nuke the pipe and all other procs die off
+		FIFO=$(mktemp -u); mkfifo "$FIFO"
+
+		# We use stdbuf -oL to make sure tail is line buffered so that we get output in a timely manner
+		{ stdbuf -oL $TAIL $TAIL_OPTS $* | $UPSCALER > "$FIFO" & FIFO_PID=$!; }
+
+		$FZF $FZF_OPTS < "$FIFO"
+
+		kill $FIFO_PID 2>/dev/null
+		rm -f "$FIFO"
 	}
 
 } "$@";
