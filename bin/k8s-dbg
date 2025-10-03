@@ -1,5 +1,6 @@
 #!/bin/zsh
-setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS;
+
 
 () {
     source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
@@ -11,13 +12,15 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
 ##																									\e[m
 ##		\e[31;1moptions\e[m
 ##			-c		  The container to debug (defaults to the first pod)
+##			-p		  Pull new image (--image-pull-policy=Always)
 ##			-x		  The context to use (defaults to the current context)
 ##			-h		  Shows this help information
 ##			-v		  Increases verbosity, may be repeated multiple times
 ##
 
+
     # Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
-    zparseopts -D -E v+=VERBOSITY h=HELP c:=CONTAINER x:=CONTEXT ||
+    zparseopts -D -E v+=VERBOSITY h=HELP c:=CONTAINER x:=CONTEXT p=PULL||
         help;
 
     # Capture the verbosity number (number of -vvv's)
@@ -44,10 +47,10 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
 	EX_OPTS=();
     [[ -n "${CONTEXT[2]}" ]] && OPTS=($OPTS --context=${CONTEXT[2]})
     [[ -n "${CONTAINER[2]}" ]] && EX_OPTS=($EX_OPTS --target=${CONTAINER[2]})
+    [[ "$PULL" ]] && EX_OPTS=($EX_OPTS --image-pull-policy=Always)
     POD=$1
 
-	set -x;
-    # Start the port-forward loop in the background
+    Start the port-forward loop in the background
     {
         while kill -0 $MY_PID 2>/dev/null; do
             kubectl port-forward $OPTS $POD 22:22 9222:9222 &
@@ -60,7 +63,7 @@ setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
 
 	sleep 1;
 
+    set -x;
     # Run kubectl exec in the foreground
     kubectl debug $OPTS $EX_OPTS $POD --share-processes --profile=sysadmin --image=gcr.io/resgen-143217/sftp-sidecar -it
-
 } "$@";
