@@ -41,6 +41,7 @@
 			UPSCALER="$ZSX_CFG/upscalers/${SPLIT[2]:t}";
 			[[ -x "$UPSCALER" ]] ||
 				error "An upscaler matched on $GLOB but $UPSCALER is not an executable file.";
+			break;
 		}
 	}
 
