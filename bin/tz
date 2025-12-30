@@ -66,11 +66,19 @@
 	TAIL_OPTS=(-F --quiet ${_TAIL_N});
 
 	FZF="fzf";
-	FZF_OPTS=(--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel');
+	FZF_OPTS=(--tac --layout=default --height=100% --no-sort --no-expect --exact --ansi --tabstop=4 --bind 'start:last' --bind 'change:first' --bind 'enter:first' --bind 'esc:cancel' --tail=500000);
+	FZF_OPTS+=(--bind end:first+untrack-current)
+	FZF_OPTS+=(--bind page-up:page-up+track-current)
+	FZF_OPTS+=(--bind page-down:page-down+track-current)
+	FZF_OPTS+=(--bind home:last+track-current)
+
+	FZF_OPTS+=(--bind insert:untrack-current)
+	FZF_OPTS+=(--bind delete:track-current)
+
 
 	[[ -z "$*" ]] && {
 		# Inline fzf mode
-		$FZF $FZF_OPTS;
+		$FZF $FZF_OPTS;     
 		: 
 	} || { 
 		# We create a fifo to handle the pipe from tail to fzf so that when fzf exits, we can nuke the pipe and all other procs die off
@@ -79,6 +87,7 @@
 		# We use stdbuf -oL to make sure tail is line buffered so that we get output in a timely manner
 		{ stdbuf -oL $TAIL $TAIL_OPTS $* | $UPSCALER > "$FIFO" & FIFO_PID=$!; }
 
+		
 		$FZF $FZF_OPTS < "$FIFO"
 
 		kill $FIFO_PID 2>/dev/null
