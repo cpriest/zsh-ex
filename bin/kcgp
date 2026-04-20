@@ -1,0 +1,50 @@
+#!/bin/zsh
+setopt NO_FUNCTION_ARGZERO LOCAL_OPTIONS ERR_EXIT;
+
+() {
+	source "$ZEX_DIR/lib/scripts.zsh" 2>/dev/null ||
+		{ echo "Could not source zsh-ex/lib/scripts.zsh, is zsh-ex installed?"; exit 1; }
+
+##																									\e[m
+##	kcgp [pod]
+##		Tries to locate a pod name by [pod] and prints to stdout, shows all pods if no argument is given.  
+##		This is intended to be used in scripts and aliases to easily get a pod name based on a search string.  
+##		If multiple pods match the search string, the most recently created one will be returned.
+##																									\e[m
+##		\e[31;1moptions\e[m
+##			-h		  Shows this help information
+##			-q		  Decreases verbosity, may be repeated multiple times
+##			-v		  Increases verbosity, may be repeated multiple times
+##
+
+	[[ -x $(command -v kubectl) ]] || {
+		echo "kubectl not found, kcgp function will not be available" >&2;
+		return;
+	}
+
+	# Parse the options passed in, this needs to match the options listed in the help file, see `man zshmodule` for details
+	zparseopts -D -E q+=QUIET v+=VERBOSITY h=HELP ||
+		help;
+
+	# Capture the verbosity number (number of -vvv's)
+	VERBOSITY=$(( ${#VERBOSITY} - ${#QUIET} + 1))
+
+	# Display help if requested
+	[[ "$HELP" ]] &&
+		help;
+
+	# Called on exit from this point forward
+	on_exit() {
+
+	}
+	# trap on_exit EXIT;
+
+	[[ -z "$1" ]] && { xxkubectl get pods; return 1; }
+
+	POD=$(kubectl get pods --sort-by=.metadata.creationTimestamp -o custom-columns=NAME:.metadata.name --no-headers | grep -E "$1" | tail -n1);
+
+	[[ $VERBOSITY -ge 1 ]] &&
+		echo "kcgp() found pod: $POD" >&2;
+
+	echo "$POD";
+} "$@";
