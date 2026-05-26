@@ -1,48 +1,79 @@
 #!/bin/zsh
-#	psx pcre[...]
-#		Lists processes from all process trees which match all {pcre} patterns
+#	psx pcre [pcre ...]
+#		List every process whose `ps` line matches ALL given PCRE patterns
+#		(logical AND), together with its chain of ancestors up the tree.
+#		Matches are highlighted; ancestors are shown plainly so the tree
+#		structure is visible. The shell psx runs from, and its own
+#		ancestors, are never shown.
 
-PS_CMD='\ps afx -o pgid,pid,user,stat,%cpu,%mem,rss,args';
-PCRE='\pcregrep';
+local PS_FMT='pgid,pid,user,stat,%cpu,%mem,rss,args'
 
-PCRE_OPTS=${CPE_ATP_OPTS-"-i --color=always"};
-PCRE_MATCH="$PCRE $PCRE_OPTS ";
-
-# Surround each $argv with quotes (qq) and prefix each with $PCRE_MATCH resulting in an array (local -a)
-PARAMS=( ${${(qq)@}/#/$PCRE_MATCH} );
-
-# Join the array elements with ' | ' sans the quotes
-MATCHPIPE="${(j. | .)PARAMS}";
-
-EXCLUDE_PIDS=( 0 1 $$ );
-
-if [[ -n "$MATCHPIPE" ]] {
-	PS_OUT=`\ps afx -o ppid,pid,user,stat,args | tail -n +2 | \pcregrep -v "\b$$\b"`;
-
-	# Get the PID of all matches against $MATCHPIPE, omitting our command PID
-	PIDS=( `eval "${MATCHPIPE}" <<<$PS_OUT | \perl -pe 's/^\s*\d+\s+(\d+).*$/$1/'`);
-
-	# Expand PIDS by finding all parents/children if existing list of PIDS
-	EXP_PIDS=();
-
-	# Trim PS_OUT to just ppid,pid
-	PS_PIDS="`\pcregrep -o '^\s*\d+\s+\d+' <<<$PS_OUT `";
-
-	# Recursively find child/parents of any existing pids
-	while [[ true ]] {
-		PIDS_CNT=${#PIDS};
-
-		local EXP_PIDS=(`\pcregrep "\\b(${(j.|.)PIDS})\\b" <<<$PS_PIDS | \pcregrep -v "\\b(${(j.|.)EXCLUDE_PIDS})\\b" | \perl -pe 's/^\s*(\d+)\s+(\d+).*$/$1\n$2/'`);
-
-		if [[ ${#EXP_PIDS} == $PIDS_CNT || ${#EXP_PIDS} == 0 ]] {
-			break;
-		}
-		PIDS=($EXP_PIDS);
-	}
-
-	# Finally show the ps command output again, specifying the PIDS to show and passing
-	# them through the matchpipe again for highlighting
-	eval "${PS_CMD/afx/f} -p '${(j.,.)PIDS}' | ${MATCHPIPE//pcregrep /pcregrep -C 20 } ";
-} else {
-	eval "$PS_CMD";
+# No patterns: just dump the full forest.
+if (( $# == 0 )) {
+	\ps axf -o $PS_FMT
+	exit
 }
+
+# Snapshot the process table BEFORE any pcregrep subprocess exists, so our
+# own pcregreps can never appear as matches. Columns: ppid pid user stat args.
+local PS_FULL=$(\ps ax -o ppid=,pid=,user=,stat=,args=)
+
+# Index pid -> ppid.
+typeset -A PARENT
+local line
+while IFS= read -r line; do
+	[[ $line =~ '^[[:space:]]*([0-9]+)[[:space:]]+([0-9]+)' ]] || continue
+	PARENT[$match[2]]=$match[1]
+done <<< "$PS_FULL"
+
+# Our own shell and all of its ancestors — these are never shown, and walking
+# a match's tree stops where it merges into this chain.
+typeset -A EXCLUDE
+local q=$$
+while [[ -n $q && -z ${EXCLUDE[$q]} ]]; do
+	EXCLUDE[$q]=1
+	q=${PARENT[$q]}
+done
+
+# Filter the snapshot through every pattern in turn (logical AND).
+local matches=$PS_FULL pat
+for pat in "$@"; do
+	matches=$(\pcregrep -i -- "$pat" <<< "$matches")
+	[[ -z $matches ]] && break
+done
+
+# Collect the matched pids (skipping anything in our own chain).
+local -a MATCH_PIDS
+while IFS= read -r line; do
+	[[ $line =~ '^[[:space:]]*[0-9]+[[:space:]]+([0-9]+)' ]] || continue
+	[[ -n ${EXCLUDE[$match[1]]} ]] && continue
+	MATCH_PIDS+=($match[1])
+done <<< "$matches"
+
+if (( ${#MATCH_PIDS} == 0 )) {
+	print -u2 "psx: no process matches all patterns"
+	exit 1
+}
+
+# Build the visible set: each match plus its ancestor chain, stopping where
+# the chain reaches our own shell's ancestry.
+typeset -A SHOW
+local p
+for p in $MATCH_PIDS; do
+	q=$p
+	while [[ -n $q && -z ${EXCLUDE[$q]} && -z ${SHOW[$q]} ]]; do
+		SHOW[$q]=1
+		q=${PARENT[$q]}
+	done
+done
+
+# Highlight pattern: OR of every input pattern, plus a trailing |$ so every
+# line passes through (ancestors stay visible) while only matches get colour.
+local hl=""
+for pat in "$@"; do
+	hl+="(?:$pat)|"
+done
+hl+='$'
+
+local pid_list=${(j:,:)${(k)SHOW}}
+\ps f -o $PS_FMT -p $pid_list | \pcregrep -i --color=always -- "$hl"
