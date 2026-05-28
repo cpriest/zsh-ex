@@ -14,8 +14,8 @@ if (( $# == 0 )) {
 	exit
 }
 
-# Snapshot the process table BEFORE any pcregrep subprocess exists, so our
-# own pcregreps can never appear as matches. Columns: ppid pid user stat args.
+# Snapshot the process table BEFORE any grep subprocess exists, so our
+# own greps can never appear as matches. Columns: ppid pid user stat args.
 local PS_FULL=$(\ps ax -o ppid=,pid=,user=,stat=,args=)
 
 # Index pid -> ppid.
@@ -38,7 +38,7 @@ done
 # Filter the snapshot through every pattern in turn (logical AND).
 local matches=$PS_FULL pat
 for pat in "$@"; do
-	matches=$(\pcregrep -i -- "$pat" <<< "$matches")
+	matches=$(\grep -P -i -- "$pat" <<< "$matches")
 	[[ -z $matches ]] && break
 done
 
@@ -76,4 +76,4 @@ done
 hl+='$'
 
 local pid_list=${(j:,:)${(k)SHOW}}
-\ps f -o $PS_FMT -p $pid_list | \pcregrep -i --color=always -- "$hl"
+\ps f -o $PS_FMT -p $pid_list | \grep -P -i --color=always -- "$hl"
